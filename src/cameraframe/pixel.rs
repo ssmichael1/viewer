@@ -1,5 +1,5 @@
 /// A trait for pixel types
-pub trait Pixel: Sized + Clone + Copy + std::fmt::Debug + Send + Sync {}
+pub trait Pixel: Sized + Clone + Copy + std::fmt::Debug + Send + Sync + 'static {}
 
 /// A trait for pixels that are monochromatic.
 /// These are generally pixels of type u8, u16, u32, etc...
@@ -33,7 +33,7 @@ pub struct RGBAPixel {
 }
 
 /// Implement the Pixel trait for any type that implements num_traits::PrimInt and std::fmt::Debug.
-impl<T> Pixel for T where T: num_traits::PrimInt + std::fmt::Debug + Send + Sync {}
+impl<T> Pixel for T where T: num_traits::PrimInt + std::fmt::Debug + Send + Sync + 'static {}
 
 /// Implement the pixel trait for the RGB pixel type.
 impl Pixel for RGBPixel {}
