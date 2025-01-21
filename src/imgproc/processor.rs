@@ -12,6 +12,7 @@ where
 {
     params: Option<Arc<RwLock<GuiParams>>>,
     sink: Option<Box<dyn Fn(ProcResult<T>) + 'static + Send>>,
+    lastresult: Option<ProcResult<T>>,
 }
 
 impl<T> ImageProcessor<T>
@@ -22,6 +23,7 @@ where
         Arc::new(Mutex::new(ImageProcessor::<T> {
             params: None,
             sink: None,
+            lastresult: None,
         }))
     }
 
@@ -52,7 +54,7 @@ where
         (bins, hist)
     }
 
-    pub fn process_frame(&self, frame: CameraFrame<T>) {
+    pub fn process_frame(&mut self, frame: CameraFrame<T>) {
         // Parameters for the GUI
         let params = match &self.params {
             Some(f) => f.read().unwrap().clone(),
@@ -81,7 +83,10 @@ where
             fcrange: (minscale.to_i32().unwrap(), maxscale.to_i32().unwrap()),
         };
         if let Some(cb) = &self.sink {
+            self.lastresult = Some(result.clone());
             cb(result);
+        } else {
+            self.lastresult = Some(result);
         }
     }
 }

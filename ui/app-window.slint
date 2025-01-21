@@ -71,6 +71,7 @@ component ValueText {
         padding-top: 4px;
         padding-bottom: 4px;
         th := Text {
+            font-family: "Courier";
             font-size: 14px;
             horizontal-alignment: left;
             vertical-alignment: center;
@@ -92,10 +93,16 @@ export component AppWindow inherits Window {
     in property <image> colormap_image;
     in-out property <int> camframe_width: 512;
     in-out property <int> camframe_height: 512;
+    in-out property <string> meantext: " ";
+    in-out property <string> vartext: " ";
     in-out property <[color]> colors;
 
     property <bool> show_colorbar: true;
     property <bool> show-axes: true;
+    in-out property <int> xpix: 0;
+    in-out property <int> ypix: 0;
+    in-out property <int> valatpix: 0;
+
     HorizontalBox {
         spacing: 12px;
         padding-bottom: 12px;
@@ -209,13 +216,14 @@ export component AppWindow inherits Window {
                     padding: 16px;
                     spacing-horizontal: 12px;
                     spacing-vertical: 12px;
-                    vertical-stretch: 0;
+                    vertical-stretch: 0.3;
                     Row {
                         LabelText {
                             text: "Frame Rate";
                         }
 
                         ValueText {
+                            width: 18rem;
                             text: "42.0 fps";
                         }
                     }
@@ -226,7 +234,28 @@ export component AppWindow inherits Window {
                         }
 
                         ValueText {
-                            text: "x: 42, y: 42";
+                            width: 18rem;
+                            text: Shared.mouseover_string(root.xpix, root.ypix, root.valatpix);
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Frame Mean";
+                        }
+
+                        ValueText {
+                            text: root.meantext;
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Frame 1-Sigma";
+                        }
+
+                        ValueText {
+                            text: root.vartext;
                         }
                     }
                 }
@@ -248,7 +277,7 @@ export component AppWindow inherits Window {
             padding: 24px;
             height: 100%;
             property <length> colorbar_width: 5rem + 20px;
-            property <length> yaxis_width: 6rem;
+            property <length> yaxis_width: 8rem;
             property <length> xaxis_height: 40px;
 
             Rectangle {
@@ -293,17 +322,58 @@ export component AppWindow inherits Window {
                     background: transparent;
                     border-width: 1.0px;
                     border-color: #333;
+
+                    property <{x: length, y: length}> mousedown: { x: -1px, y: -1px };
+                    property <{x: int, y: int, width: int, height: int}> selection <=> Shared.roi;
+
+                    if (selection.width > 0 && selection.height > 0): Rectangle {
+                        x: selection.x / camframe_width * image_display_width;
+                        y: selection.y / camframe_height * image_display_height;
+                        width: selection.width / camframe_width * image_display_width;
+                        height: selection.height / camframe_height * image_display_height;
+                        border-width: 1px;
+                        border-color: yellow;
+                        background: transparent;
+                    }
+
                     TouchArea {
+
                         width: 100%;
                         height: 100%;
                         x: 0;
                         y: 0;
-                        moved => {
-                            debug("start press = " + self.pressed-x / 1px + ", " + self.pressed-y / 1px);
-                            debug("Overlay pressed");
-                        }
-                        clicked => {
-                            debug("Overlay clicked");
+                        pointer-event(event) => {
+                            if (event.kind == PointerEventKind.move) {
+                                xpix = Math.floor(self.mouse-x / self.width * camframe_width);
+                                ypix = Math.floor(self.mouse-y / self.height * camframe_height);
+
+                                if (mousedown.x >= 0 && mousedown.y >= 0 && self.pressed) {
+                                    if (Math.abs(mousedown.x - self.mouse-x) > 2px && Math.abs(mousedown.y - self.mouse-y) > 2px) {
+                                        selection = {
+                                            x: Math.min(mousedown.x, self.mouse-x) * camframe_width / image_display_width,
+                                            y: Math.min(mousedown.y, self.mouse-y) * camframe_height / image_display_height,
+                                            width: Math.abs(mousedown.x - self.mouse-x) * camframe_width / image_display_width,
+                                            height: Math.abs(mousedown.y - self.mouse-y) * camframe_height / image_display_height
+                                        };
+                                    }
+                                }
+                            }
+                            if (event.kind == PointerEventKind.down) {
+                                if (event.button == PointerEventButton.left) {
+                                    mousedown = { x: self.mouse-x, y: self.mouse-y };
+                                    selection = { x: 0, y: 0, width: 0, height: 0 };
+                                }
+                            }
+                            if (event.kind == PointerEventKind.up) {
+                                if (event.button == PointerEventButton.left) {
+                                    mousedown = { x: -1px, y: -1px };
+                                    if (selection.width < 2 || selection.height < 2) {
+                                        selection = { x: 0, y: 0, width: 0, height: 0 };
+                                    } else {
+                                        debug("Updating Selection");
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -337,7 +407,7 @@ export component AppWindow inherits Window {
                         x: i * image_display_width / 8 - th.width / 2;
                         y: 16px;
                         th := Text {
-                            text: i * camframe_width / 8;
+                            text: Math.round(i * camframe_width / 8);
                             x: 0;
                             y: 0;
                             font-size: 14px;
@@ -376,7 +446,7 @@ export component AppWindow inherits Window {
                         x: image_display_xoffset - thy.width - 12px;
                         y: i * image_display_height / 8 - thy.height / 2;
                         thy := Text {
-                            text: i * camframe_height / 8;
+                            text: Math.round(i * camframe_height / 8);
                             x: 0;
                             y: 0;
                             font-size: 14px;

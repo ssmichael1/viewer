@@ -3,6 +3,7 @@ use crate::cameraframe::MonoPixel;
 use crate::cameraframe::RGBAPixel;
 use crate::CameraFrame;
 
+#[derive(Clone)]
 pub struct ProcResult<T>
 where
     T: MonoPixel,

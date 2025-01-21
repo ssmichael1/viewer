@@ -2,6 +2,7 @@ use crate::cameraframe::MonoPixel;
 use crate::imgproc::ProcResult;
 use std::error::Error;
 
+use chrono::format;
 use slint::Image;
 use slint::Model;
 use slint::Rgba8Pixel;
@@ -33,7 +34,6 @@ impl Default for GuiParams {
 pub struct Gui {
     pub ui: AppWindow,
     pub params: Arc<RwLock<GuiParams>>,
-    pub last_result: Option<ProcResult<u16>>,
 }
 
 impl Gui {
@@ -43,7 +43,7 @@ impl Gui {
 
     pub fn processed_callback<T>(&self) -> Box<dyn Fn(ProcResult<T>) + Send + 'static>
     where
-        T: MonoPixel,
+        T: MonoPixel + 'static,
     {
         let ui_handle: slint::Weak<AppWindow> = self.ui.as_weak().clone();
 
@@ -97,6 +97,14 @@ impl Gui {
                 )));
 
                 global.set_fcrange((result.fcrange.1, result.fcrange.0));
+
+                let xpix = ui.get_xpix() as u32;
+                let ypix = ui.get_ypix() as u32;
+                ui.set_valatpix(result.rawframe.data.at(xpix, ypix).to_i32().unwrap());
+
+                let (mean, var) = result.rawframe.data.mean_and_var();
+                ui.set_meantext(slint::SharedString::from(format!("{:.2}", mean)));
+                ui.set_vartext(slint::SharedString::from(format!("{:.2}", var.sqrt())));
             });
         })
     }
@@ -142,6 +150,13 @@ impl Gui {
         Self::update_colorbar(&ui.as_weak().unwrap());
         params.write().unwrap().colorscale =
             ui.global::<Shared>().get_colormap().as_str().to_string();
+
+        ui.global::<Shared>().on_mouseover_string(
+            |x: i32, y: i32, val: i32| -> slint::SharedString {
+                let s: char = if val < 0 { '-' } else { ' ' };
+                slint::SharedString::from(format!("({:4}, {:4}) = {}{:5}", x, y, s, val).as_str())
+            },
+        );
 
         // take a list of points and x,y ranges and return an SVG path as a string
         // This is very inelegant, but it works
@@ -191,11 +206,7 @@ impl Gui {
             }
         });
 
-        let gui = Self {
-            ui,
-            params,
-            last_result: None,
-        };
+        let gui = Self { ui, params };
         Ok(gui)
     }
 

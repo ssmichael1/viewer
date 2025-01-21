@@ -13,13 +13,16 @@ fn test_data(xoffset: f64, yoffset: f64) -> FrameData<u16> {
     let normal = Normal::new(0.0, 200.0).unwrap();
     let mut rng = rand::thread_rng();
 
+    let width = 1024;
+    let height = 768;
+    let npixels = width * height;
     FrameData::<u16> {
-        width: 640,
-        height: 512,
-        data: (0..640 * 512)
+        width,
+        height,
+        data: (0..npixels)
             .map(|x| {
-                let mut row = (x % 640) as f64;
-                let mut col = (x / 640) as f64;
+                let mut row = (x % width) as f64;
+                let mut col = (x / width) as f64;
                 row -= 256.0;
                 row -= yoffset;
                 col -= 256.0;

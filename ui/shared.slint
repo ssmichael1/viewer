@@ -10,5 +10,9 @@ export global Shared {
     in-out property <float> histaspect;
     in-out property <{min: int, max: int}> fcrange: { min: 0, max: 65536 };
 
+    // Region of interest for statistics, etc...
+    in-out property <{x: int, y: int, width: int, height: int}> roi: { x: 0, y: 0, width: 0, height: 0 };
+
     callback view_changed();
+    pure callback mouseover_string(int, int, int) -> string;
 }
