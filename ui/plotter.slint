@@ -102,6 +102,7 @@ export component PlotArea inherits Rectangle {
     in-out property <{min: float, max: float}> x-range: { min: 0, max: 1 };
     in-out property <{min: float, max: float}> y-range: { min: 0, max: 1 };
     padding: 0px;
+
     i-background := Rectangle {
         x: 0;
         y: 0;
@@ -112,17 +113,13 @@ export component PlotArea inherits Rectangle {
     }
 
     for line in linedata: Path {
-        x: 2px;
-        y: 4px;
         width: parent.width;
         height: parent.height;
-        padding: 0px;
         viewbox-width: 100;
-        viewbox-height: 100;
-
+        viewbox-height: 100 * parent.height / parent.width;
         stroke: line.linecolor;
         stroke-width: line.linewidth;
-        commands: Shared.linetosvg(line.points, x-range, y-range);
+        commands: Shared.linetosvg(line.points, x-range, y-range, parent.height / parent.width);
     }
 }
 
@@ -131,9 +128,6 @@ export component PlotBox inherits Rectangle {
     in-out property <length> tickfontsize: 1rem;
     in-out property <string> x-label: "xlabel";
     in-out property <string> y-label: "ylabel";
-    in-out property <{min: float, max: float}> x-range: { min: 0, max: 1 };
-    in-out property <{min: float, max: float}> y-range: { min: 0, max: 1 };
-    in-out property <[{linecolor: color, linewidth: length, points: [{x: float, y: float}]}]> linedata: [];
 
     i-background := Rectangle {
         x: 0;
@@ -145,22 +139,22 @@ export component PlotBox inherits Rectangle {
 
     xaxh := XAxis {
         label <=> root.x-label;
-        range <=> root.x-range;
+        range <=> Shared.histxrange;
         labelfontsize <=> root.labelfontsize;
         tickfontsize <=> root.tickfontsize;
         x: yaxh.width;
         y: parent.height - xaxh.height;
-        width: parent.width - yaxh.width - 8px;
+        width: parent.width - yaxh.width - 16px;
     }
 
     yaxh := YAxis {
         label <=> root.y-label;
-        range <=> root.y-range;
+        range <=> Shared.histyrange;
         labelfontsize <=> root.labelfontsize;
         tickfontsize <=> root.tickfontsize;
         x: 0;
         y: 15px;
-        height: parent.height - xaxh.height - 15px;
+        height: parent.height - xaxh.height - 16px;
     }
 
     plotarea := PlotArea {
@@ -168,7 +162,8 @@ export component PlotBox inherits Rectangle {
         y: yaxh.y;
         width: xaxh.width;
         height: yaxh.height;
-        x-range <=> root.x-range;
-        y-range <=> root.y-range;
+        x-range <=> Shared.histxrange;
+        y-range <=> Shared.histyrange;
+        linedata <=> Shared.histdata;
     }
 }

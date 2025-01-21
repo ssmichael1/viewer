@@ -7,6 +7,12 @@ pub struct SimSource {
 }
 
 fn test_data(xoffset: f64, yoffset: f64) -> FrameData<u16> {
+    use rand::distributions::Distribution;
+    use rand_distr::Normal;
+
+    let normal = Normal::new(0.0, 200.0).unwrap();
+    let mut rng = rand::thread_rng();
+
     FrameData::<u16> {
         width: 640,
         height: 512,
@@ -18,7 +24,8 @@ fn test_data(xoffset: f64, yoffset: f64) -> FrameData<u16> {
                 row -= yoffset;
                 col -= 256.0;
                 col -= xoffset;
-                (f64::exp(-(row * row + col * col) / 400.0) * 65535.0) as u16
+                let g = f64::exp(-(row * row + col * col) / 400.0) * 16384.0;
+                (g + 10000.0 + normal.sample(&mut rng)) as u16
             })
             .collect(),
     }

@@ -10,7 +10,6 @@ where
     T: MonoPixel + 'static,
 {
     framelist: Arc<Mutex<Vec<CameraFrame<T>>>>,
-    thread: Option<thread::JoinHandle<()>>,
     framelistsync: Arc<(Mutex<()>, Condvar)>,
 }
 
@@ -21,7 +20,6 @@ where
     pub fn new() -> Self {
         ImageQueue {
             framelist: Arc::new(Mutex::new(Vec::new())),
-            thread: None,
             framelistsync: Arc::new((Mutex::new(()), Condvar::new())),
         }
     }

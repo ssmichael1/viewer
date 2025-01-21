@@ -12,8 +12,6 @@ use imgproc::ImageQueue;
 use simsource::SimSource;
 use std::error::Error;
 
-use std::rc::Rc;
-
 fn main() -> Result<(), Box<dyn Error>> {
     let mut thegui = gui::Gui::new()?;
 

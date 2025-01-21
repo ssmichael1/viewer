@@ -1,6 +1,7 @@
 import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
 import {ToggleSwitch} from "toggleswitch.slint";
 import {PlotBox} from "plotter.slint";
+import {Shared} from "shared.slint"; 
 
 component GroupBox {
     in-out property <string> title: "GroupBox";
@@ -86,23 +87,15 @@ export component AppWindow inherits Window {
     min-width: 800px;
     preferred-height: 1024px;
     preferred-width: 1280px;
-    in-out property <string> colormap: "Parula";
-    in-out property <int> counter: 42;
+
     in-out property <image> camframe;
     in property <image> colormap_image;
     in-out property <int> camframe_width: 512;
     in-out property <int> camframe_height: 512;
-    in-out property <float> gamma: 1.0;
     in-out property <[color]> colors;
 
     property <bool> show_colorbar: true;
     property <bool> show-axes: true;
-
-    callback request-increase-value();
-    callback auto-color-scale(bool);
-    callback colormap-changed();
-    callback gamma-changed(float);
-
     HorizontalBox {
         spacing: 12px;
         padding-bottom: 12px;
@@ -131,8 +124,8 @@ export component AppWindow inherits Window {
                             model: ["Parula", "Grayscale", "Hot", "Red"];
                             selected(value) => {
                                 debug("Selected colormap: " + value);
-                                colormap = value;
-                                colormap-changed();
+                                Shared.colormap = value;
+                                Shared.view-changed();
                             }
                         }
                     }
@@ -150,16 +143,16 @@ export component AppWindow inherits Window {
                                 minimum: -1.0;
                                 maximum: 1.0;
                                 step: 0.01;
-                                value: Math.log(gamma, 10.0);
+                                value: Math.log(Shared.gamma, 10.0);
                                 changed(value) => {
-                                    gamma = Math.pow(10.0, value);
-                                    gamma-changed(gamma);
+                                    Shared.gamma = Math.pow(10.0, value);
+                                    Shared.view-changed();
                                 }
                             }
 
                             ValueText {
                                 width: 6rem;
-                                text: (gamma * 100.0).round() / 100.0;
+                                text: (Shared.gamma * 100.0).round() / 100.0;
                             }
                         }
                     }
@@ -169,7 +162,13 @@ export component AppWindow inherits Window {
                             text: "Auto Color Scale";
                         }
 
-                        ToggleSwitch { }
+                        ToggleSwitch {
+                            checked: Shared.autoscale;
+                            toggled(value) => {
+                                Shared.autoscale = value;
+                                Shared.view-changed();
+                            }
+                        }
                     }
 
                     Row {
@@ -197,19 +196,6 @@ export component AppWindow inherits Window {
                                 debug("Show Colorbar: " + (value == false ? "false" : "true"));
                                 show_colorbar = value;
                             }
-                        }
-                    }
-
-                    Row {
-                        Button {
-                            text: "Take Backgorund";
-                            max-height: 1.5rem;
-                            width: 120px;
-                        }
-
-                        Button {
-                            text: "Zero Background";
-                            width: 120px;
                         }
                     }
                 }
@@ -251,7 +237,6 @@ export component AppWindow inherits Window {
                 padding: 8px;
                 min-height: 200px;
                 PlotBox {
-                    height: 400px;
                     x-label: "Pixel Value";
                     y-label: "Frequency";
                 }
@@ -441,11 +426,11 @@ export component AppWindow inherits Window {
                             y: 0;
                         }
                     }
-                    for c[i] in 9: Text {
-                        text: 9 - i;
+                    for c[i] in ncmap_ticks: Text {
+                        text: Math.round((ncmap_ticks - i - 1) / (ncmap_ticks - 1) * (Shared.fcrange.max - Shared.fcrange.min) + Shared.fcrange.min);
                         font-size: 12px;
                         x: 26px;
-                        y: i * parent.height / 8 - 6px;
+                        y: i * parent.height / (ncmap_ticks - 1) - 6px;
                         color: #333;
                     }
                 }
