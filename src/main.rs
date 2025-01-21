@@ -13,11 +13,14 @@ use simsource::SimSource;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Create a GUI
     let mut thegui = gui::Gui::new()?;
 
+    // create an image processing chain
     let imgproc = imgproc::ImageProcessor::<u16>::new();
     // set parameter structure for image processor
     imgproc.lock().unwrap().set_params(thegui.get_params());
+    // Tell the chain to call the gui processor when it is complete
     imgproc
         .lock()
         .unwrap()
@@ -27,6 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let imgqueue = ImageQueue::<u16>::new();
     // Process images whenever a frame arrives
     let pclone = imgproc.clone();
+    // Start the image queue (creates a thread)
     imgqueue.start(move |frame: CameraFrame<u16>| {
         pclone.lock().unwrap().process_frame(frame);
     });
