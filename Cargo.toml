@@ -1,0 +1,35 @@
+[package]
+name = "viewer"
+version = "0.1.1"
+readme = "README.md"
+description = "Camera image viewer"
+edition = "2021"
+license-file = "LICENSE"
+
+[[bin]]
+name = "viewer"
+path = "src/main.rs"
+
+[dependencies]
+itertools = "0.14.0"
+thiserror = "2.0.11"
+num-traits = "0.2.18"
+chrono = "0.4.39"
+png = "0.17.16"
+slint = "1.9.2"
+tiny-skia = "0.11.4"
+
+[dev-dependencies]
+rand = "0.8.4"       # used for testing
+rand_distr = "0.4.2" # used for testing
+chrono = "0.4.39"    # used for testing
+approx = "0.5.0"     # used for testing
+
+[build-dependencies]
+slint-build = "1.9.2"
+
+[features]
+
+
+[profile.test]
+opt-level = 3

@@ -1,0 +1,455 @@
+import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
+import {ToggleSwitch} from "toggleswitch.slint";
+import {PlotBox} from "plotter.slint";
+
+component GroupBox {
+    in-out property <string> title: "GroupBox";
+    in-out property <int> font-size: 14;
+    in-out property <int> font-weight: 600;
+    i-background := Rectangle {
+        border-width: 1px;
+        border-radius: 6px;
+        border-color: #555;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #333;
+        background: Palette.background;
+    }
+
+    padding: 4px;
+    Rectangle {
+        width: titleh.width + 12px;
+        height: 4px;
+        x: 16px;
+        y: -2px;
+        background: Palette.background;
+    }
+
+    titleh := Text {
+        text: title;
+        font-size: font-size * 1px;
+        font-weight: font-weight;
+        y: font-size / 2 * -1px;
+        x: 20px;
+        color: #555;
+    }
+
+    content := VerticalBox {
+        padding: 8px;
+        @children
+    }
+}
+
+component LabelText inherits Text {
+    font-size: 14px;
+    horizontal-alignment: right;
+    vertical-alignment: center;
+    font-weight: 400;
+    color: #333;
+    padding-right: 16px;
+    width: 120px;
+    vertical-stretch: 0;
+    max-height: 20px;
+}
+
+component ValueText {
+
+    in-out property <string> text;
+    padding: 8px;
+    text <=> th.text;
+
+    max-width: 100px;
+    i-background := Rectangle {
+        border-width: 2px;
+        border-radius: 4px;
+        border-color: #333;
+        background: #ddd;
+    }
+
+    HorizontalLayout {
+        padding-left: 12pt;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        th := Text {
+            font-size: 14px;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            font-weight: 400;
+            color: #333;
+            vertical-stretch: 0;
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    title: "Camera Viewer";
+    min-height: 600px;
+    min-width: 800px;
+    preferred-height: 1024px;
+    preferred-width: 1280px;
+    in-out property <string> colormap: "Parula";
+    in-out property <int> counter: 42;
+    in-out property <image> camframe;
+    in property <image> colormap_image;
+    in-out property <int> camframe_width: 512;
+    in-out property <int> camframe_height: 512;
+    in-out property <float> gamma: 1.0;
+    in-out property <[color]> colors;
+
+    property <bool> show_colorbar: true;
+    property <bool> show-axes: true;
+
+    callback request-increase-value();
+    callback auto-color-scale(bool);
+    callback colormap-changed();
+    callback gamma-changed(float);
+
+    HorizontalBox {
+        spacing: 12px;
+        padding-bottom: 12px;
+        padding-top: 20px;
+        padding-left: 16px;
+        padding-right: 16px;
+        VerticalBox {
+            padding: 0px;
+            GroupBox {
+                title: "Display Settings";
+                padding: 8px;
+                width: 400px;
+
+                GridLayout {
+                    padding: 16px;
+                    spacing-horizontal: 16px;
+                    spacing-vertical: 12px;
+                    Row {
+                        LabelText {
+                            text: "Colormap";
+                        }
+
+                        ComboBox {
+                            height: 30px;
+                            width: 200px;
+                            model: ["Parula", "Grayscale", "Hot", "Red"];
+                            selected(value) => {
+                                debug("Selected colormap: " + value);
+                                colormap = value;
+                                colormap-changed();
+                            }
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Gamma";
+                        }
+
+                        HorizontalLayout {
+                            spacing: 16px;
+                            Slider {
+                                height: 30px;
+                                width: 120px;
+                                minimum: -1.0;
+                                maximum: 1.0;
+                                step: 0.01;
+                                value: Math.log(gamma, 10.0);
+                                changed(value) => {
+                                    gamma = Math.pow(10.0, value);
+                                    gamma-changed(gamma);
+                                }
+                            }
+
+                            ValueText {
+                                width: 6rem;
+                                text: (gamma * 100.0).round() / 100.0;
+                            }
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Auto Color Scale";
+                        }
+
+                        ToggleSwitch { }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Show Axes";
+                        }
+
+                        ToggleSwitch {
+                            checked: show-axes;
+                            toggled(value) => {
+                                show-axes = value;
+                                debug("Show Axes: " + (value == false ? "false" : "true"));
+                            }
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Show Colorbar";
+                        }
+
+                        ToggleSwitch {
+                            checked: show_colorbar;
+                            toggled(value) => {
+                                debug("Show Colorbar: " + (value == false ? "false" : "true"));
+                                show_colorbar = value;
+                            }
+                        }
+                    }
+
+                    Row {
+                        Button {
+                            text: "Take Backgorund";
+                            max-height: 1.5rem;
+                            width: 120px;
+                        }
+
+                        Button {
+                            text: "Zero Background";
+                            width: 120px;
+                        }
+                    }
+                }
+            } // end of groupbox display settings
+
+            GroupBox {
+                title: "Frame Statistics";
+                padding: 8px;
+
+                GridLayout {
+                    padding: 16px;
+                    spacing-horizontal: 12px;
+                    spacing-vertical: 12px;
+                    vertical-stretch: 0;
+                    Row {
+                        LabelText {
+                            text: "Frame Rate";
+                        }
+
+                        ValueText {
+                            text: "42.0 fps";
+                        }
+                    }
+
+                    Row {
+                        LabelText {
+                            text: "Mouseover Pixel";
+                        }
+
+                        ValueText {
+                            text: "x: 42, y: 42";
+                        }
+                    }
+                }
+            } // end of groupbox frame statistics
+
+            GroupBox {
+                title: "Histogram";
+                padding: 8px;
+                min-height: 200px;
+                PlotBox {
+                    height: 400px;
+                    x-label: "Pixel Value";
+                    y-label: "Frequency";
+                }
+            }
+        } // end of vertical box
+
+        framebox_handle := GroupBox {
+            title: "Camera Frame";
+            padding: 24px;
+            height: 100%;
+            property <length> colorbar_width: 5rem + 20px;
+            property <length> yaxis_width: 6rem;
+            property <length> xaxis_height: 40px;
+
+            Rectangle {
+
+                padding-top: 24px;
+
+
+                // Some computations on positions...
+                property <length> top-pad: 12px;
+                property <length> available_width: self.width - (show_colorbar ? colorbar_width : 0) - (show-axes ? yaxis_width : 0);
+                property <length> available_height: self.height - (show-axes ? xaxis_height : 0) - top-pad;
+                property <float> available_aspect_ratio: available_width / available_height;
+                property <float> cam_aspect-ratio: camframe_width / camframe_height;
+                property <length> image_display_width: available_aspect_ratio > cam_aspect-ratio ? cam_aspect-ratio * available_height : available_width;
+                property <length> image_display_height: available_aspect_ratio > cam_aspect-ratio ? available_height : available_width / cam_aspect-ratio;
+                property <length> image_display_xoffset: (available_width - image_display_width - (show-axes ? yaxis_width : 0)) / 2 + (show-axes ? yaxis_width : 0);
+                property <length> image_display_yoffset: (available_height - image_display_height) / 2 + top-pad;
+
+                // The image
+                imh := Rectangle {
+                    width: image_display_width;
+                    height: image_display_height;
+                    x: image_display_xoffset;
+                    y: image_display_yoffset;
+                    Image {
+                        source: camframe;
+                        x: 0;
+                        y: 0;
+                        width: 100%;
+                        height: 100%;
+                        image-fit: fill;
+                        image-rendering: pixelated;
+                    }
+                }
+
+                // The overlay
+                overlay_handle := Rectangle {
+                    width: image_display_width;
+                    height: image_display_height;
+                    x: image_display_xoffset;
+                    y: image_display_yoffset;
+                    background: transparent;
+                    border-width: 1.0px;
+                    border-color: #333;
+                    TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        x: 0;
+                        y: 0;
+                        moved => {
+                            debug("start press = " + self.pressed-x / 1px + ", " + self.pressed-y / 1px);
+                            debug("Overlay pressed");
+                        }
+                        clicked => {
+                            debug("Overlay clicked");
+                        }
+                    }
+                }
+
+                if show-axes: xax := Rectangle {
+                    width: image_display_width;
+                    height: xaxis_height;
+                    x: image_display_xoffset;
+                    y: image_display_yoffset + image_display_height - 8px;
+
+                        // Draw x axis tick marks
+                        for i in 9: Path {
+                        width: 2px;
+                        height: 16px;
+                        x: i * image_display_width / 8 - 1px;
+                        y: 0px;
+                        stroke-width: 1px;
+                        stroke: #333;
+                        MoveTo {
+                            x: 0;
+                            y: 0;
+                        }
+
+                        LineTo {
+                            x: 0;
+                            y: 100;
+                        }
+                    }
+                        // Draw x axis labels
+                        for i in 9: Rectangle {
+                        x: i * image_display_width / 8 - th.width / 2;
+                        y: 16px;
+                        th := Text {
+                            text: i * camframe_width / 8;
+                            x: 0;
+                            y: 0;
+                            font-size: 14px;
+                            color: #333;
+                        }
+                    }
+                } // end of x axis
+
+
+                if show-axes: yax := Rectangle {
+                    width: image_display_xoffset + 4px;
+                    height: image_display_height;
+                    x: 0;
+                    y: image_display_yoffset;
+
+                        // Draw y axis tick marks
+                    for i in 9: Path {
+                        width: 12px;
+                        height: 2px;
+                        x: image_display_xoffset - 8px;
+                        y: i * image_display_height / 8 - 1px;
+                        stroke-width: 1px;
+                        stroke: #333;
+                        MoveTo {
+                            x: 0;
+                            y: 0;
+                        }
+
+                        LineTo {
+                            x: 100;
+                            y: 0;
+                        }
+                    }
+                        // Draw y axis labels
+                    for i in 9: Rectangle {
+                        x: image_display_xoffset - thy.width - 12px;
+                        y: i * image_display_height / 8 - thy.height / 2;
+                        thy := Text {
+                            text: i * camframe_height / 8;
+                            x: 0;
+                            y: 0;
+                            font-size: 14px;
+                            color: #333;
+                            horizontal-alignment: right;
+                        }
+                    }
+                }
+
+                if (show_colorbar): Rectangle {
+                    width: colorbar_width;
+                    height: image_display_height;
+                    x: image_display_width + image_display_xoffset + 20px;
+                    y: image_display_yoffset;
+                    property <int> ncmap_ticks: 9;
+
+                    Image {
+                        i-background := Rectangle {
+                            border-width: 1.2px;
+                            border-radius: 2px;
+                            border-color: #555;
+                        }
+
+                        source: colormap_image;
+                        x: 0px;
+                        y: 0px;
+                        width: 20px;
+                        height: 100%;
+                        image-fit: fill;
+                        image-rendering: pixelated;
+                    }
+
+                    for c[i] in 9: Path {
+                        stroke-width: 1px;
+                        stroke: #333;
+                        x: 16px;
+                        y: i * parent.height / 8;
+                        width: 8px;
+                        height: 0px;
+                        MoveTo {
+                            x: 0;
+                            y: 0;
+                        }
+
+                        LineTo {
+                            x: 100;
+                            y: 0;
+                        }
+                    }
+                    for c[i] in 9: Text {
+                        text: 9 - i;
+                        font-size: 12px;
+                        x: 26px;
+                        y: i * parent.height / 8 - 6px;
+                        color: #333;
+                    }
+                }
+            }
+        }
+    } // main horizontal box
+} // main window

@@ -1,0 +1,53 @@
+use crate::cameraframe::CameraFrame;
+use crate::cameraframe::FrameData;
+use std::thread;
+
+pub struct SimSource {
+    thread: Option<thread::JoinHandle<()>>,
+}
+
+fn test_data(xoffset: f64, yoffset: f64) -> FrameData<u16> {
+    FrameData::<u16> {
+        width: 640,
+        height: 512,
+        data: (0..640 * 512)
+            .map(|x| {
+                let mut row = (x % 640) as f64;
+                let mut col = (x / 640) as f64;
+                row -= 256.0;
+                row -= yoffset;
+                col -= 256.0;
+                col -= xoffset;
+                (f64::exp(-(row * row + col * col) / 400.0) * 65535.0) as u16
+            })
+            .collect(),
+    }
+}
+
+impl SimSource {
+    pub fn new() -> Self {
+        SimSource { thread: None }
+    }
+
+    pub fn start<F>(&mut self, onframe: F)
+    where
+        F: Fn(CameraFrame<u16>) + Send + 'static,
+    {
+        // Spawn a thread that continuously generates frames
+        self.thread = Some(thread::spawn(move || {
+            use std::f64::consts::PI;
+            loop {
+                thread::sleep(std::time::Duration::from_millis(30));
+                let now = chrono::Utc::now();
+
+                // Create a frame
+                let xoffset = (now.timestamp_millis() as f64 * 2.0 * PI / 1000.0).cos() * 10.0;
+                let yoffset = (now.timestamp_millis() as f64 * 2.0 * PI / 3000.0).cos() * 20.0;
+
+                let frame = CameraFrame::<u16>::create(0.1, now, 16, test_data(xoffset, yoffset));
+                // Run the callback
+                onframe(frame);
+            }
+        }));
+    }
+}
