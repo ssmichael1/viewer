@@ -3,6 +3,15 @@ use crate::cameraframe::MonoPixel;
 use crate::cameraframe::RGBAPixel;
 use crate::CameraFrame;
 
+///
+/// Output of image processing chain
+///
+/// # Contains
+/// * raw image,
+/// * Image with contigious memory to be displayed in color format
+/// * False color range ued in the display
+/// * Histogram of the image
+///
 #[derive(Clone)]
 pub struct ProcResult<T>
 where

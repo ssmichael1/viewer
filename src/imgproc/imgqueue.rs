@@ -5,6 +5,9 @@ use std::sync::Condvar;
 use std::sync::Mutex;
 use std::thread;
 
+/// A simple queue with a way to add images when they are received,
+/// and pull them off the queue and process them.
+///
 pub struct ImageQueue<T>
 where
     T: MonoPixel + 'static,

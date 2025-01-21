@@ -54,6 +54,11 @@ where
         (bins, hist)
     }
 
+    ///
+    /// Process a raw frame to produce a result.
+    ///
+    /// Then run the "sink" function on that result when complete
+    ///
     pub fn process_frame(&mut self, frame: CameraFrame<T>) {
         // Parameters for the GUI
         let params = match &self.params {
