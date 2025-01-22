@@ -206,6 +206,13 @@ export component PlotArea inherits Rectangle {
 }
 
 export component DragArea inherits Rectangle {
+    in-out property <bool> mindrag: false;
+    in-out property <bool> maxdrag: false;
+
+    in-out property <int> fcmin: 0.0;
+    in-out property <int> fcmax: 65536;
+    in-out property <{min: float, max: float}> range: { min: 0, max: 1 };
+
     vbmin := VertBar {
         x: parent.width / 2 - self.width / 2;
         y: 0;
@@ -214,6 +221,48 @@ export component DragArea inherits Rectangle {
     vbmax := VertBar {
         x: parent.width - self.width / 2;
         y: 0;
+    }
+
+    TouchArea {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                if (Math.abs(self.mouse-x - (vbmin.x + vbmin.width / 2)) < 4px) {
+                    mindrag = true;
+                    debug("mindrag set");
+                } else if (Math.abs(self.mouse-x - (vbmax.x + vbmax.width / 2)) < 4px) {
+                    maxdrag = true;
+                }
+            }
+            if (event.kind == PointerEventKind.up) {
+                mindrag = false;
+                maxdrag = false;
+            }
+            if (mindrag) {
+                vbmin.x = self.mouse-x - vbmin.width / 2;
+                if (vbmin.x < 0) {
+                    vbmin.x = 0;
+                }
+                if (vbmin.x > vbmax.x - 4px) {
+                    vbmin.x = vbmax.x - 4px;
+                }
+                fcmin = ((vbmin.x + vbmin.width / 2) / parent.width) * (range.max - range.min) + range.min;
+            }
+            if (maxdrag) {
+                vbmax.x = self.mouse-x - vbmax.width / 2;
+                if (vbmax.x > parent.width) {
+                    vbmax.x = parent.width;
+                }
+                if (vbmax.x < vbmin.x + 4px) {
+                    vbmax.x = vbmin.x + 4px;
+                }
+                fcmax = (vbmax.x + vbmax.width / 2) / parent.width * (range.max - range.min) + range.min;
+            }
+        }
     }
 }
 
@@ -261,10 +310,15 @@ export component PlotBox inherits Rectangle {
         linedata <=> Shared.histdata;
     }
 
-    DragArea {
+    // This has the vertical drag bars
+    // for setting the false color scale from the histogram
+    dah := DragArea {
         x: yaxh.x + yaxh.width;
         y: yaxh.y - 2px;
         width: xaxh.width;
         height: yaxh.height + 2px;
+        fcmin <=> Shared.manualfc_min;
+        fcmax <=> Shared.manualfc_max;
+        range <=> Shared.histxrange;
     }
 }
