@@ -41,11 +41,13 @@ component GroupBox {
 }
 
 component LabelText inherits Text {
+    in-out property <bool> enabled: true;
+
     font-size: 14px;
     horizontal-alignment: right;
     vertical-alignment: center;
     font-weight: 400;
-    color: #333;
+    color: enabled == true ? #333 : #aaa;
     padding-right: 16px;
     width: 120px;
     vertical-stretch: 0;
@@ -179,6 +181,19 @@ export component AppWindow inherits Window {
                     }
 
                     Row {
+                        LabelText {
+                            text: "Manual Range";
+                            enabled: !Shared.autoscale;
+                        }
+
+                        ToggleSwitch {
+                            checked <=> Shared.manualfc;
+                            enabled: !Shared.autoscale;
+                        }
+                    }
+
+                    Row {
+
                         LabelText {
                             text: "Show Axes";
                         }
@@ -333,6 +348,7 @@ export component AppWindow inherits Window {
                         height: selection.height / camframe_height * image_display_height;
                         border-width: 1px;
                         border-color: yellow;
+                        border-radius: 2px;
                         background: transparent;
                     }
 

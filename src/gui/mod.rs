@@ -56,9 +56,14 @@ impl Gui {
                 let global = ui.global::<Shared>();
 
                 // Create the histogram points
-                let histxrange = (65536.0, 0.0);
+                let histxrange = (
+                    *result.histogram.0.last().unwrap() as f32,
+                    *result.histogram.0.first().unwrap() as f32,
+                );
+
                 let maxhist = *result.histogram.1.iter().max().unwrap() as f64;
                 let maxhist = f64::powf(2.0, f64::log2(maxhist).ceil());
+
                 let histyrange = (maxhist as f32, 0.0_f32);
                 let histpoints = slint::VecModel::from_slice(
                     &result

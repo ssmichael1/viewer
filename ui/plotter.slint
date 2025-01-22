@@ -1,6 +1,88 @@
 
 import {Shared} from "shared.slint";
 
+component VertBar inherits Rectangle {
+    x: 0;
+    y: 0;
+    width: 1.25rem;
+    height: 100%;
+
+    Path {
+        x: parent.width / 2 - self.width / 2;
+
+        width: 2px;
+        height: 100%;
+        stroke: #333;
+        stroke-width: 2px;
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+
+        LineTo {
+            x: 0;
+            y: 100;
+        }
+    }
+
+    Path {
+        // Semicircle at top
+        padding: 0;
+        width: parent.width;
+        height: 1rem;
+        x: 0;
+        y: 0rem;
+        stroke: #333;
+        stroke-width: 2px;
+        fill: green;
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+
+        ArcTo {
+            x-rotation: 180;
+            x: 100;
+            y: 0;
+            radius-x: 50;
+            radius-y: 50;
+            large-arc: true;
+            sweep: false;
+        }
+
+        LineTo {
+            x: 0;
+            y: 0;
+        }
+    }
+
+    Path {
+        // Semicircle at bottom
+        padding: 0;
+        width: parent.width;
+        height: 1rem;
+        x: 0;
+        y: parent.height - 0.8rem;
+        stroke: #333;
+        stroke-width: 2px;
+        fill: green;
+        MoveTo {
+            x: 0;
+            y: 0;
+        }
+
+        ArcTo {
+            x-rotation: 180;
+            x: 100;
+            y: 0;
+            radius-x: 50;
+            radius-y: 50;
+            large-arc: true;
+            sweep: true;
+        }
+    }
+}
+
 component XAxis inherits Rectangle {
     in-out property <length> labelfontsize: 12px;
     in-out property <length> tickfontsize: 10px;
@@ -123,6 +205,18 @@ export component PlotArea inherits Rectangle {
     }
 }
 
+export component DragArea inherits Rectangle {
+    vbmin := VertBar {
+        x: parent.width / 2 - self.width / 2;
+        y: 0;
+    }
+
+    vbmax := VertBar {
+        x: parent.width - self.width / 2;
+        y: 0;
+    }
+}
+
 export component PlotBox inherits Rectangle {
     in-out property <length> labelfontsize: 1.2rem;
     in-out property <length> tickfontsize: 1rem;
@@ -165,5 +259,12 @@ export component PlotBox inherits Rectangle {
         x-range <=> Shared.histxrange;
         y-range <=> Shared.histyrange;
         linedata <=> Shared.histdata;
+    }
+
+    DragArea {
+        x: yaxh.x + yaxh.width;
+        y: yaxh.y - 2px;
+        width: xaxh.width;
+        height: yaxh.height + 2px;
     }
 }
