@@ -1,5 +1,4 @@
 use super::FrameData;
-use super::MonoPixel;
 use super::Pixel;
 
 #[derive(Clone)]

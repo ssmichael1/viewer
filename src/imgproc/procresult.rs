@@ -1,6 +1,4 @@
-use crate::cameraframe::FrameData;
 use crate::cameraframe::MonoPixel;
-use crate::cameraframe::RGBAPixel;
 use crate::CameraFrame;
 
 ///

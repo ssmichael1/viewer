@@ -70,9 +70,6 @@ where
             None => GuiParams::default(),
         };
 
-        let cmap = crate::colormap::from_string(params.colorscale.as_str())
-            .unwrap_or(crate::colormap::grayscale());
-
         let (minscale, maxscale) = match params.fcscaletype {
             FCScaleType::Auto => (frame.data.minval(), frame.data.maxval()),
             FCScaleType::Manual => (

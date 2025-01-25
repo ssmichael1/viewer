@@ -40,14 +40,10 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 
     // Simulated camera source
-    let mut simsource: Option<SimSource> = None;
-
     let mut cam: Option<svbony::SVBonyCamera> = None;
     if cameras.is_empty() {
-        simsource = Some(SimSource::new());
-        simsource
-            .unwrap()
-            .start(move |frame: CameraFrame<u16>| imgqueue.on_frame_available(frame));
+        let mut sim = SimSource::new();
+        sim.start(move |frame: CameraFrame<u16>| imgqueue.on_frame_available(frame));
     } else {
         println!("SDK Version = {}", svbony::lowlevel::get_sdk_version());
         println!("camera = {:?}", cameras.first().unwrap().camera_id);

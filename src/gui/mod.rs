@@ -1,4 +1,3 @@
-use crate::cameraframe::RGBAPixel;
 use crate::imgproc::ProcResult;
 use std::error::Error;
 
@@ -9,8 +8,8 @@ use slint::SharedPixelBuffer;
 
 slint::include_modules!();
 
-use fast_image_resize::{IntoImageView, Resizer};
-
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Debug, Copy)]
@@ -41,7 +40,7 @@ impl Default for GuiParams {
 
 #[derive(Clone)]
 pub struct Gui {
-    pub ui: Arc<RwLock<AppWindow>>,
+    pub ui: Rc<RefCell<AppWindow>>,
     pub params: Arc<RwLock<GuiParams>>,
     pub proc: Arc<RwLock<ProcResult<u16>>>,
 }
@@ -52,7 +51,7 @@ impl Gui {
     }
 
     pub fn on_processed(&self) -> Box<dyn Fn(ProcResult<u16>) + Send + 'static> {
-        let ui_handle: slint::Weak<AppWindow> = self.ui.read().unwrap().as_weak();
+        let ui_handle: slint::Weak<AppWindow> = self.ui.borrow().as_weak();
         let proc = self.proc.clone();
 
         Box::new(move |result: ProcResult<u16>| {
@@ -110,6 +109,7 @@ impl Gui {
                 let (mean, var) = result.rawframe.data.mean_and_var();
                 ui.set_meantext(slint::SharedString::from(format!("{:.2}", mean)));
                 ui.set_vartext(slint::SharedString::from(format!("{:.2}", var.sqrt())));
+                ui.window().request_redraw();
             });
         })
     }
@@ -246,7 +246,12 @@ impl Gui {
                     },
                 };
                 p.scale_range = (globals.get_manualfc_min(), globals.get_manualfc_max());
-                ui.window().request_redraw();
+                println!("requesting redraw");
+                let sz = ui.window().size();
+                ui.window()
+                    .dispatch_event(slint::platform::WindowEvent::Resized {
+                        size: sz.to_logical(1.0),
+                    });
             }
         });
 
@@ -334,7 +339,7 @@ impl Gui {
         });
 
         let gui = Self {
-            ui: Arc::new(RwLock::new(ui)),
+            ui: Rc::new(RefCell::new(ui)),
             params,
             proc,
         };
@@ -343,7 +348,7 @@ impl Gui {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.ui.read().unwrap().run()?;
+        self.ui.borrow_mut().run()?;
         Ok(())
     }
 }

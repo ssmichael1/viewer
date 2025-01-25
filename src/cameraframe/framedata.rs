@@ -1,6 +1,4 @@
-use super::MonoPixel;
 use super::Pixel;
-use super::RGBAPixel;
 
 #[derive(Debug, Clone)]
 pub struct FrameData<T>

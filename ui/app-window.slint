@@ -7,6 +7,81 @@ import {Shared} from "shared.slint";
 component GroupBox {
     in-out property <string> title: "GroupBox";
     in-out property <int> font-size: 14;
+    in-out property <int> font-weight: 700;
+    in-out property <bool> dropped: true;
+    in-out property <bool> collapsible: true;
+
+    property <float> a: dropped ? 1 : 0;
+    property <length> cmheight: a * content.preferred-height + topbar.height;
+
+    height: cmheight;
+
+    i-background := Rectangle {
+        border-width: 1px;
+        border-radius: 6px;
+        border-color: #555;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #333;
+        background: Palette.background;
+    }
+
+    padding: 4px;
+    topbar := Rectangle {
+        width: 100%;
+        height: titleh.height + 8px;
+        x: 0px;
+        y: 0px;
+        background: Palette.selection-background;
+        border-top-left-radius: 6px;
+        border-top-right-radius: 6px;
+        border-bottom-left-radius: a > 0.1 ? 0 : 6px;
+        border-bottom-right-radius: a > 0.1 ? 0 : 6px;
+
+        if collapsible: bb := Rectangle {
+            width: parent.height - 6px;
+            height: parent.height - 6px;
+            x: 3px;
+            y: 3px;
+            background: transparent;
+            border-width: 2px;
+            border-color: #333;
+            border-radius: self.width / 2;
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    dropped = !dropped;
+                }
+            }
+        }
+
+        titleh := Text {
+            text: title;
+            font-size: font-size * 1px;
+            font-weight: font-weight;
+            y: 4px;
+            x: 32px;
+            color: #555;
+        }
+    }
+
+    content := VerticalBox {
+        spacing: 6px;
+        padding-top: topbar.height + 4px;
+        visible: a > 0.9999 ? true : false;
+        padding: 8px;
+        @children
+    }
+
+    animate a {
+        duration: 250ms;
+        easing: ease;
+    }
+}
+
+component GroupBoxOld {
+    in-out property <string> title: "GroupBox";
+    in-out property <int> font-size: 14;
     in-out property <int> font-weight: 600;
     i-background := Rectangle {
         border-width: 1px;
@@ -52,7 +127,6 @@ component LabelText inherits Text {
     color: enabled == true ? #333 : #aaa;
     padding-right: 16px;
     width: 120px;
-    vertical-stretch: 0;
     max-height: 20px;
 }
 
@@ -90,7 +164,7 @@ export component AppWindow inherits Window {
     title: "Camera Viewer";
     min-height: 600px;
     min-width: 800px;
-    preferred-height: 800px;
+    preferred-height: 1024px;
     preferred-width: 1200px;
 
     in-out property <image> camframe;
@@ -118,9 +192,6 @@ export component AppWindow inherits Window {
 
         VerticalBox {
             padding: 0px;
-            spacing: 16px;
-            min-height: 1200px;
-
             GroupBox {
                 title: "Display Settings";
                 padding: 8px;
@@ -292,7 +363,8 @@ export component AppWindow inherits Window {
                 title: "Histogram";
                 PlotBox {
                     padding-top: 24px;
-                    min-height: 256px;
+                    min-height: 64px;
+                    preferred-height: 256px;
                     x-label: "Pixel Value";
                     y-label: "Frequency";
                 }
@@ -301,15 +373,14 @@ export component AppWindow inherits Window {
 
         framebox_handle := GroupBox {
             title: "Camera Frame";
+            collapsible: false;
             padding: 24px;
             property <length> colorbar_width: 5rem + 20px;
             property <length> yaxis_width: 8rem;
             property <length> xaxis_height: 40px;
-            height: 100%;
-
             Rectangle {
-                height: 100%;
-
+                //preferred-height: root.height - 256px - 8px;
+                preferred-height: root.height - 150px;
                 // Some computations on positions...
                 property <length> top-pad: 12px;
                 property <length> available_width: self.width - (show_colorbar ? colorbar_width : 0) - (show-axes ? yaxis_width : 0);
@@ -320,7 +391,13 @@ export component AppWindow inherits Window {
                 property <length> image_display_height: available_aspect_ratio > cam_aspect-ratio ? available_height : available_width / cam_aspect-ratio;
                 property <length> image_display_xoffset: (available_width - image_display_width - (show-axes ? yaxis_width : 0)) / 2 + (show-axes ? yaxis_width : 0);
                 property <length> image_display_yoffset: (available_height - image_display_height) / 2 + top-pad;
-                
+
+                i-background2 := Rectangle {
+                    border-width: 1px;
+                    border-radius: 6px;
+                    border-color: white;
+                    background: white;
+                }
 
                 // The image
                 imh := Rectangle {
