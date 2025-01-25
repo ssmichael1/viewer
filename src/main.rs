@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         println!("got to here");
         let width = cam.as_ref().unwrap().max_width();
         let height = cam.as_ref().unwrap().max_height();
-        cam.as_mut().unwrap().set_exposure(30000)?;
+        cam.as_mut().unwrap().set_exposure(1000)?;
         cam.as_mut().unwrap().set_gain(50)?;
         cam.as_mut()
             .unwrap()

@@ -20,7 +20,7 @@ slint = "1.9.2"
 tiny-skia = "0.11.4"
 rand = "0.8.4"                  # used for testing
 rand_distr = "0.4.2"            # used for testing
-resize = "0.8.8"
+fast_image_resize = "5.1.1"
 
 [dev-dependencies]
 chrono = "0.4.39" # used for testing

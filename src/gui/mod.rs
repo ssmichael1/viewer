@@ -9,6 +9,8 @@ use slint::SharedPixelBuffer;
 
 slint::include_modules!();
 
+use fast_image_resize::{IntoImageView, Resizer};
+
 use std::sync::{Arc, RwLock};
 
 #[derive(Clone, Debug, Copy)]
@@ -253,19 +255,11 @@ impl Gui {
             let proc = proc.clone();
             let params = params.clone();
 
-            let mut src_width: usize = 512;
-            let mut src_height: usize = 512;
-            let mut dst_width: usize = 512;
-            let mut dst_height: usize = 512;
-            let mut resizer = resize::new(
-                src_width,
-                src_height,
-                dst_width,
-                dst_height,
-                resize::Pixel::Gray16,
-                resize::Type::BSpline,
-            )
-            .unwrap();
+            let mut resizer = fast_image_resize::Resizer::new();
+            let mut resized =
+                fast_image_resize::images::Image::new(512, 512, fast_image_resize::PixelType::U8x4);
+            let mut unresized =
+                fast_image_resize::images::Image::new(512, 512, fast_image_resize::PixelType::U8x4);
 
             move |width: f32, height: f32| {
                 let width = width as usize;
@@ -274,65 +268,63 @@ impl Gui {
                 let rawframe = &proc.read().unwrap().rawframe;
                 let raw = &proc.read().unwrap().rawframe.data;
 
-                // Create a resized frame
-                let mut resized = crate::cameraframe::FrameData::<u16> {
-                    width: width as u32,
-                    height: height as u32,
-                    data: vec![0; width * height],
+                // Get the colormap
+                let cmap = crate::colormap::from_string(params.read().unwrap().colorscale.as_str())
+                    .unwrap_or(crate::colormap::grayscale());
+                let gamma = params.read().unwrap().gamma;
+                let maxcolor = 255_i64;
+                let (minscale, maxscale) = match params.read().unwrap().fcscaletype {
+                    FCScaleType::Auto => (raw.minval(), raw.maxval()),
+                    FCScaleType::Manual => (
+                        params.read().unwrap().scale_range.0 as u16,
+                        params.read().unwrap().scale_range.1 as u16,
+                    ),
+                    FCScaleType::Max => (0, (1_u32 << rawframe.bit_depth as u32) as u16),
                 };
-                //
-                if ((src_width, src_height) != (raw.width as usize, raw.height as usize)
-                    || (dst_width, dst_height) != (width, height))
-                {
-                    src_width = raw.width as usize;
-                    src_height = raw.height as usize;
-                    dst_width = width;
-                    dst_height = height;
-                    resizer = resize::new(
-                        src_width,
-                        src_height,
-                        dst_width,
-                        dst_height,
-                        resize::Pixel::Gray16,
-                        resize::Type::BSpline,
-                    )
-                    .unwrap();
+                let range = maxscale - minscale;
+
+                if (unresized.width(), unresized.height()) != (raw.width, raw.height) {
+                    unresized = fast_image_resize::images::Image::new(
+                        raw.width,
+                        raw.height,
+                        fast_image_resize::PixelType::U8x4,
+                    );
                 }
 
-                let _ = resizer.resize(
-                    unsafe {
-                        std::slice::from_raw_parts(
-                            raw.data.as_ptr() as *const resize::px::Gray<u16>,
-                            raw.data.len(),
-                        )
-                    },
-                    unsafe {
-                        std::slice::from_raw_parts_mut(
-                            resized.data.as_mut_ptr() as *mut resize::px::Gray<u16>,
-                            resized.data.len(),
-                        )
-                    },
-                );
+                let cbuf = unresized.buffer_mut();
 
-                let p = params.read().unwrap();
-                let (minscale, maxscale) = match p.fcscaletype {
-                    FCScaleType::Auto => (raw.minval(), raw.maxval()),
-                    FCScaleType::Manual => (p.scale_range.0 as u16, p.scale_range.1 as u16),
-                    FCScaleType::Max => (0, ((1_u32 << rawframe.bit_depth as u32) - 1) as u16),
-                };
-                let cmap = crate::colormap::from_string(p.colorscale.as_str())
-                    .unwrap_or(crate::colormap::grayscale());
+                // Create the RGBA image
+                raw.data.iter().enumerate().for_each(|(i, x)| {
+                    let idx = match (gamma - 1.0).abs() < 0.02 {
+                        true => (((*x as i64 - minscale as i64) * maxcolor / range as i64)
+                            .clamp(0, 255) as usize)
+                            .min(255),
+                        false => (((*x as f32 - minscale as f32) / range as f32)
+                            .powf(1.0 / gamma as f32)
+                            * maxcolor as f32)
+                            .clamp(0.0, 255.0) as usize,
+                    };
+                    let color = cmap[idx];
+                    cbuf[i * 4] = color.r;
+                    cbuf[i * 4 + 1] = color.g;
+                    cbuf[i * 4 + 2] = color.b;
+                    cbuf[i * 4 + 3] = color.a;
+                });
 
-                let rgba = resized.to_rgba(minscale, maxscale, p.gamma, cmap);
+                // See if we need to re-allocate destination
+                if (resized.width(), resized.height()) != (width as u32, height as u32) {
+                    resized = fast_image_resize::images::Image::new(
+                        width as u32,
+                        height as u32,
+                        fast_image_resize::PixelType::U8x4,
+                    );
+                }
+
+                resizer.resize(&unresized, &mut resized, None).unwrap();
 
                 let cmap_image = Image::from_rgba8_premultiplied(
                     SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
-                        unsafe {
-                            std::slice::from_raw_parts(
-                                rgba.data.as_ptr() as *const u8,
-                                rgba.data.len() * std::mem::size_of::<RGBAPixel>(),
-                            )
-                        },
+                        resized.buffer(),
                         width as u32,
                         height as u32,
                     ),

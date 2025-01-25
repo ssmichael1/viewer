@@ -27,7 +27,7 @@ export component ToggleSwitch inherits Rectangle {
                 x: 4px + self.a * (indicator.width - bubble.width - 8px);
                 property <float> a: root.checked ? 1 : 0;
                 //background: root.checked ? Palette.accent-foreground : (root.enabled ? Palette.accent-background : gray);
-                background: root.enabled ? (root.checked ? Palette.background : Palette.selection-background) : gray;
+                background: root.enabled ? (root.checked ? Palette.background : Palette.selection-background.darker(1.2)) : gray;
                 animate a, background {
                     duration: 250ms;
                     easing: ease;
