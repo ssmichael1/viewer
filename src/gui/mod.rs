@@ -87,8 +87,9 @@ impl Gui {
                         .collect::<Vec<(f32, f32)>>(),
                 );
                 let histline = slint::VecModel::from_slice(&[(
-                    slint::Color::from_argb_u8(255, 255, 0, 0),
-                    1.5_f32,
+                    slint::Color::from_argb_u8(255, 255, 0, 0).darker(0.5),
+                    slint::Color::from_argb_u8(255, 255, 0, 0).darker(1.4),
+                    1.0_f32,
                     histpoints,
                 )]);
                 // Setup the histogram
@@ -202,10 +203,18 @@ impl Gui {
              yrange: (f32, f32),
              aspect: f32|
              -> slint::SharedString {
+                // The logic here is very confusing:
+                // x and y axes appear flipped from what I would expect
+
                 let xscale = 100.0 / (xrange.1 - xrange.0);
                 let yscale = 100.0 / (yrange.1 - yrange.0) * aspect;
                 let mut svg = String::new();
-                let m = p.iter().next().unwrap();
+
+                // Remap to a reversible vector, then reverse
+                let p: Vec<(f32, f32)> = p.iter().collect();
+                let p: Vec<(f32, f32)> = p.into_iter().rev().collect();
+
+                let m = p.first().unwrap();
                 svg.push_str(
                     format!(
                         "M {} {}",
@@ -221,7 +230,23 @@ impl Gui {
                     svg.push_str(format!(" L {} {}", x, y).as_str());
                 });
 
-                svg.push_str(" M 0 0 Z");
+                let ml = p.iter().last().unwrap();
+                svg.push_str(
+                    format!(
+                        " L {} {}",
+                        (100.0 - (ml.0 - xrange.0) * xscale).clamp(0.0, 100.0),
+                        100.0 * aspect
+                    )
+                    .as_str(),
+                );
+                svg.push_str(
+                    format!(
+                        " L {} {} Z",
+                        (100.0 - (m.0 - xrange.0) * xscale).clamp(0.0, 100.0),
+                        100.0 * aspect
+                    )
+                    .as_str(),
+                );
                 slint::SharedString::from(svg)
             },
         );
@@ -246,12 +271,7 @@ impl Gui {
                     },
                 };
                 p.scale_range = (globals.get_manualfc_min(), globals.get_manualfc_max());
-                println!("requesting redraw");
-                let sz = ui.window().size();
-                ui.window()
-                    .dispatch_event(slint::platform::WindowEvent::Resized {
-                        size: sz.to_logical(1.0),
-                    });
+                ui.window().request_redraw();
             }
         });
 
@@ -286,7 +306,7 @@ impl Gui {
                     ),
                     FCScaleType::Max => (0, (1_u32 << rawframe.bit_depth as u32) as u16),
                 };
-                let range = maxscale - minscale;
+                let range = (maxscale - minscale).max(1);
 
                 if (unresized.width(), unresized.height()) != (raw.width, raw.height) {
                     unresized = fast_image_resize::images::Image::new(

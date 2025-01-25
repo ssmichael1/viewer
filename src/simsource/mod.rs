@@ -27,8 +27,8 @@ fn test_data(xoffset: f64, yoffset: f64) -> FrameData<u16> {
                 row -= yoffset;
                 col -= 256.0;
                 col -= xoffset;
-                let g = f64::exp(-(row * row + col * col) / 400.0) * 16384.0;
-                (g + 10000.0 + normal.sample(&mut rng)) as u16
+                let g = f64::exp(-(row * row + col * col) / 400.0) * 2048.0;
+                (g + 1024.0 + normal.sample(&mut rng)).clamp(0.0, 4095.0) as u16
             })
             .collect(),
     }
@@ -54,7 +54,7 @@ impl SimSource {
                 let xoffset = (now.timestamp_millis() as f64 * 2.0 * PI / 1000.0).cos() * 10.0;
                 let yoffset = (now.timestamp_millis() as f64 * 2.0 * PI / 3000.0).cos() * 20.0;
 
-                let frame = CameraFrame::<u16>::create(0.1, now, 16, test_data(xoffset, yoffset));
+                let frame = CameraFrame::<u16>::create(0.1, now, 12, test_data(xoffset, yoffset));
                 // Run the callback
                 onframe(frame);
             }

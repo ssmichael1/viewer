@@ -1,6 +1,9 @@
 export global Shared {
     pure callback linetosvg(points: [{x: float, y: float}], xrange: {min: float, max: float}, yrange: {min: float, max: float}, aspect: float) -> string;
-    in-out property <[{linecolor: color, linewidth: length, points: [{x: float, y: float}]}]> histdata: [];
+    in-out property <[{linecolor: color, fill: color, linewidth: length, points: [{ x: float, y: float}]
+}
+
+]> histdata: [];
     in-out property <{min: float, max: float}> histxrange: { min: 0, max: 65536 };
     in-out property <{min: float, max: float}> histyrange: { min: 0, max: 1 };
     in-out property <bool> autoscale: false;

@@ -21,10 +21,3 @@ pub use cameraframe_def::CameraFrame;
 //pub use cameraframe::CameraFrameU16;
 //pub use cameraframe::CameraFrameU32;
 pub use framedata::FrameData;
-
-pub struct ROI {
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
-}

@@ -1,121 +1,12 @@
 import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
 import {ToggleSwitch} from "toggleswitch.slint";
 import {PlotBox} from "plotter.slint";
-import {Shared} from "shared.slint"; 
+import {Shared} from "shared.slint";
+import {GroupBox, GroupBoxCollapsible} from "groupbox.slint";
 
 
-component GroupBox {
-    in-out property <string> title: "GroupBox";
-    in-out property <int> font-size: 14;
-    in-out property <int> font-weight: 700;
-    in-out property <bool> dropped: true;
-    in-out property <bool> collapsible: true;
 
-    property <float> a: dropped ? 1 : 0;
-    property <length> cmheight: a * content.preferred-height + topbar.height;
 
-    height: cmheight;
-
-    i-background := Rectangle {
-        border-width: 1px;
-        border-radius: 6px;
-        border-color: #555;
-        drop-shadow-blur: 4px;
-        drop-shadow-color: #333;
-        background: Palette.background;
-    }
-
-    padding: 4px;
-    topbar := Rectangle {
-        width: 100%;
-        height: titleh.height + 8px;
-        x: 0px;
-        y: 0px;
-        background: Palette.selection-background;
-        border-top-left-radius: 6px;
-        border-top-right-radius: 6px;
-        border-bottom-left-radius: a > 0.1 ? 0 : 6px;
-        border-bottom-right-radius: a > 0.1 ? 0 : 6px;
-
-        if collapsible: bb := Rectangle {
-            width: parent.height - 6px;
-            height: parent.height - 6px;
-            x: 3px;
-            y: 3px;
-            background: transparent;
-            border-width: 2px;
-            border-color: #333;
-            border-radius: self.width / 2;
-            TouchArea {
-                width: 100%;
-                height: 100%;
-                clicked => {
-                    dropped = !dropped;
-                }
-            }
-        }
-
-        titleh := Text {
-            text: title;
-            font-size: font-size * 1px;
-            font-weight: font-weight;
-            y: 4px;
-            x: 32px;
-            color: #555;
-        }
-    }
-
-    content := VerticalBox {
-        spacing: 6px;
-        padding-top: topbar.height + 4px;
-        visible: a > 0.9999 ? true : false;
-        padding: 8px;
-        @children
-    }
-
-    animate a {
-        duration: 250ms;
-        easing: ease;
-    }
-}
-
-component GroupBoxOld {
-    in-out property <string> title: "GroupBox";
-    in-out property <int> font-size: 14;
-    in-out property <int> font-weight: 600;
-    i-background := Rectangle {
-        border-width: 1px;
-        border-radius: 6px;
-        border-color: #555;
-        drop-shadow-blur: 4px;
-        drop-shadow-color: #333;
-        background: Palette.background;
-    }
-
-    padding: 4px;
-    Rectangle {
-        width: titleh.width + 12px;
-        height: 4px;
-        x: 16px;
-        y: -2px;
-        background: Palette.background;
-    }
-
-    titleh := Text {
-        text: title;
-        font-size: font-size * 1px;
-        font-weight: font-weight;
-        y: font-size / 2 * -1px;
-        x: 20px;
-        color: #555;
-    }
-
-    content := VerticalBox {
-        spacing: 6px;
-        padding: 8px;
-        @children
-    }
-}
 
 component LabelText inherits Text {
     in-out property <bool> enabled: true;
@@ -188,14 +79,13 @@ export component AppWindow inherits Window {
         padding-top: 20px;
         padding-left: 16px;
         padding-right: 16px;
-        height: parent.height - 48px;
 
         VerticalBox {
             padding: 0px;
-            GroupBox {
+            GroupBoxCollapsible {
                 title: "Display Settings";
                 padding: 8px;
-                width: 400px;
+                width: 480px;
 
                 GridLayout {
                     padding: 16px;
@@ -270,7 +160,6 @@ export component AppWindow inherits Window {
                             toggled(value) => {
                                 Shared.manualfc_min = Shared.histxrange.min;
                                 Shared.manualfc_max = Shared.histxrange.max;
-                                debug(Shared.manualfc_min, Shared.manualfc_max);
                                 Shared.manualfc = value;
                                 Shared.view-changed();
                             }
@@ -306,7 +195,7 @@ export component AppWindow inherits Window {
                 }
             } // end of groupbox display settings
 
-            GroupBox {
+            GroupBoxCollapsible {
                 title: "Frame Statistics";
                 padding: 8px;
 
@@ -314,7 +203,7 @@ export component AppWindow inherits Window {
                     padding: 16px;
                     spacing-horizontal: 12px;
                     spacing-vertical: 12px;
-                    vertical-stretch: 0.3;
+                    vertical-stretch: 1;
                     Row {
                         LabelText {
                             text: "Frame Rate";
@@ -359,12 +248,14 @@ export component AppWindow inherits Window {
                 }
             } // end of groupbox frame statistics
 
-            GroupBox {
+            GroupBoxCollapsible {
                 title: "Histogram";
+                visoncollapse: false;
                 PlotBox {
                     padding-top: 24px;
+
                     min-height: 64px;
-                    preferred-height: 256px;
+                    preferred-height: 320px;
                     x-label: "Pixel Value";
                     y-label: "Frequency";
                 }
@@ -373,14 +264,13 @@ export component AppWindow inherits Window {
 
         framebox_handle := GroupBox {
             title: "Camera Frame";
-            collapsible: false;
             padding: 24px;
             property <length> colorbar_width: 5rem + 20px;
             property <length> yaxis_width: 8rem;
             property <length> xaxis_height: 40px;
+            height: parent.height - parent.padding-top - parent.padding-bottom - 12px;
             Rectangle {
-                //preferred-height: root.height - 256px - 8px;
-                preferred-height: root.height - 150px;
+                //height: parent.height - 48px;
                 // Some computations on positions...
                 property <length> top-pad: 12px;
                 property <length> available_width: self.width - (show_colorbar ? colorbar_width : 0) - (show-axes ? yaxis_width : 0);
@@ -434,7 +324,7 @@ export component AppWindow inherits Window {
                         y: selection.y / camframe_height * image_display_height;
                         width: selection.width / camframe_width * image_display_width;
                         height: selection.height / camframe_height * image_display_height;
-                        border-width: 1px;
+                        border-width: 2px;
                         border-color: yellow;
                         border-radius: 2px;
                         background: transparent;
