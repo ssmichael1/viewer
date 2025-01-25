@@ -85,13 +85,10 @@ where
             ),
         };
 
-        let rgbaframe = frame.data.to_rgba(minscale, maxscale, params.gamma, cmap);
-
         let histogram = Self::compute_histogram(&frame);
 
         let result = ProcResult {
             rawframe: frame,
-            displayimage: rgbaframe,
             histogram,
             fcrange: (minscale.to_i32().unwrap(), maxscale.to_i32().unwrap()),
         };

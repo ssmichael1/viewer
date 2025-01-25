@@ -96,20 +96,8 @@ impl Gui {
                 global.set_histdata(histline);
 
                 // Create the image
-                ui.set_camframe_height(result.displayimage.height as i32);
-                ui.set_camframe_width(result.displayimage.width as i32);
-                ui.set_camframe(Image::from_rgba8_premultiplied(SharedPixelBuffer::<
-                    Rgba8Pixel,
-                >::clone_from_slice(
-                    unsafe {
-                        std::slice::from_raw_parts(
-                            result.displayimage.data.as_ptr() as *const u8,
-                            result.displayimage.data.len() * std::mem::size_of::<Rgba8Pixel>(),
-                        )
-                    },
-                    result.displayimage.width,
-                    result.displayimage.height,
-                )));
+                ui.set_camframe_height(result.rawframe.data.height as i32);
+                ui.set_camframe_width(result.rawframe.data.width as i32);
 
                 global.set_fcrange((result.fcrange.1, result.fcrange.0));
 
@@ -256,7 +244,7 @@ impl Gui {
                     },
                 };
                 p.scale_range = (globals.get_manualfc_min(), globals.get_manualfc_max());
-                println!("params = {:?}", p);
+                ui.window().request_redraw();
             }
         });
 
@@ -264,29 +252,52 @@ impl Gui {
         ui.global::<Shared>().on_displayimage({
             let proc = proc.clone();
             let params = params.clone();
+
+            let mut src_width: usize = 512;
+            let mut src_height: usize = 512;
+            let mut dst_width: usize = 512;
+            let mut dst_height: usize = 512;
+            let mut resizer = resize::new(
+                src_width,
+                src_height,
+                dst_width,
+                dst_height,
+                resize::Pixel::Gray16,
+                resize::Type::BSpline,
+            )
+            .unwrap();
+
             move |width: f32, height: f32| {
                 let width = width as usize;
                 let height = height as usize;
 
                 let rawframe = &proc.read().unwrap().rawframe;
                 let raw = &proc.read().unwrap().rawframe.data;
-                let mut resizer = resize::new(
-                    raw.width as usize,
-                    raw.height as usize,
-                    width,
-                    height,
-                    resize::Pixel::Gray16,
-                    resize::Type::BSpline,
-                )
-                .unwrap();
 
                 // Create a resized frame
                 let mut resized = crate::cameraframe::FrameData::<u16> {
                     width: width as u32,
                     height: height as u32,
-                    data: vec![0 as u16; width * height],
+                    data: vec![0; width * height],
                 };
                 //
+                if ((src_width, src_height) != (raw.width as usize, raw.height as usize)
+                    || (dst_width, dst_height) != (width, height))
+                {
+                    src_width = raw.width as usize;
+                    src_height = raw.height as usize;
+                    dst_width = width;
+                    dst_height = height;
+                    resizer = resize::new(
+                        src_width,
+                        src_height,
+                        dst_width,
+                        dst_height,
+                        resize::Pixel::Gray16,
+                        resize::Type::BSpline,
+                    )
+                    .unwrap();
+                }
 
                 let _ = resizer.resize(
                     unsafe {

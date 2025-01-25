@@ -18,7 +18,6 @@ where
     T: MonoPixel,
 {
     pub rawframe: CameraFrame<T>,
-    pub displayimage: FrameData<RGBAPixel>,
     pub histogram: (Vec<i32>, Vec<i32>),
     pub fcrange: (i32, i32),
 }
@@ -30,7 +29,6 @@ where
     fn default() -> Self {
         ProcResult {
             rawframe: CameraFrame::<T>::default(),
-            displayimage: FrameData::<RGBAPixel>::default(),
             histogram: (vec![], vec![]),
             fcrange: (0, 4096),
         }
