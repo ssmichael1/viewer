@@ -1,6 +1,16 @@
 
 import {Shared} from "shared.slint";
 
+
+component VertBar inherits Rectangle {
+    x: 0;
+    y: 0;
+    width: 0.5rem;
+    height: 100%;
+    in-out property <color> gcolor: yellow;
+    background: @linear-gradient(90deg, #333 0%, gcolor 30%, #333 90%);
+}
+
 component XAxis inherits Rectangle {
     in-out property <length> labelfontsize: 12px;
     in-out property <length> tickfontsize: 10px;
@@ -18,7 +28,7 @@ component XAxis inherits Rectangle {
     for i in self.numticks: Path {
         width: 2px;
         height: 12px;
-        x: i * parent.width / (parent.numticks - 1);
+        x: i * parent.width / (parent.numticks - 1) - self.width / 2;
         y: - 4px;
         stroke-width: 1px;
         stroke: #333;
@@ -52,7 +62,7 @@ component YAxis inherits Rectangle {
     in-out property <string> label: "ylabel";
     in-out property <{min: float, max: float}> range: { min: 0, max: 1 };
     in-out property <int> numticks: 5;
-    width: 40px + tw.height;
+    width: 60px + tw.height;
     property <length> maxtickwidth: 0;
 
     tw := Text {
@@ -119,7 +129,70 @@ export component PlotArea inherits Rectangle {
         viewbox-height: 100 * parent.height / parent.width;
         stroke: line.linecolor;
         stroke-width: line.linewidth;
+        fill: red;
         commands: Shared.linetosvg(line.points, x-range, y-range, parent.height / parent.width);
+    }
+}
+
+export component DragArea inherits Rectangle {
+    in-out property <bool> mindrag: false;
+    in-out property <bool> maxdrag: false;
+
+    in-out property <int> fcmin: 0.0;
+    in-out property <int> fcmax: 65536;
+    in-out property <{min: float, max: float}> range: { min: 0, max: 1 };
+
+    vbmin := VertBar {
+        x: parent.width * (fcmin - range.min) / (range.max - range.min) - self.width / 2;
+        y: 0;
+    }
+
+    vbmax := VertBar {
+        x: parent.width * (fcmax - range.min) / (range.max - range.min) - self.width / 2;
+        y: 0;
+    }
+
+    TouchArea {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+
+        pointer-event(event) => {
+            if (event.kind == PointerEventKind.down) {
+                if (Math.abs(self.mouse-x - (vbmin.x + vbmin.width / 2)) < 4px) {
+                    mindrag = true;
+                } else if (Math.abs(self.mouse-x - (vbmax.x + vbmax.width / 2)) < 4px) {
+                    maxdrag = true;
+                }
+            }
+            if (event.kind == PointerEventKind.up) {
+                mindrag = false;
+                maxdrag = false;
+            }
+            if (mindrag) {
+                vbmin.x = self.mouse-x - vbmin.width / 2;
+                if (vbmin.x < -vbmin.width / 2) {
+                    vbmin.x = -vbmin.width / 2;
+                }
+                if (vbmin.x > vbmax.x - 4px) {
+                    vbmin.x = vbmax.x - 4px;
+                }
+                fcmin = ((vbmin.x + vbmin.width / 2) / parent.width) * (range.max - range.min) + range.min;
+                Shared.view_changed();
+            }
+            if (maxdrag) {
+                vbmax.x = self.mouse-x - vbmax.width / 2;
+                if (vbmax.x > parent.width - vbmax.width / 2) {
+                    vbmax.x = parent.width - vbmax.width / 2;
+                }
+                if (vbmax.x < vbmin.x + 4px) {
+                    vbmax.x = vbmin.x + 4px;
+                }
+                fcmax = (vbmax.x + vbmax.width / 2) / parent.width * (range.max - range.min) + range.min;
+                Shared.view_changed();
+            }
+        }
     }
 }
 
@@ -165,5 +238,17 @@ export component PlotBox inherits Rectangle {
         x-range <=> Shared.histxrange;
         y-range <=> Shared.histyrange;
         linedata <=> Shared.histdata;
+    }
+
+    // This has the vertical drag bars
+    // for setting the false color scale from the histogram
+    if Shared.manualfc: dah := DragArea {
+        x: yaxh.x + yaxh.width;
+        y: yaxh.y;
+        width: xaxh.width;
+        height: yaxh.height;
+        fcmin <=> Shared.manualfc_min;
+        fcmax <=> Shared.manualfc_max;
+        range <=> Shared.histxrange;
     }
 }

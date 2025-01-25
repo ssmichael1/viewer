@@ -3,6 +3,7 @@ import {ToggleSwitch} from "toggleswitch.slint";
 import {PlotBox} from "plotter.slint";
 import {Shared} from "shared.slint"; 
 
+
 component GroupBox {
     in-out property <string> title: "GroupBox";
     in-out property <int> font-size: 14;
@@ -41,11 +42,13 @@ component GroupBox {
 }
 
 component LabelText inherits Text {
+    in-out property <bool> enabled: true;
+
     font-size: 14px;
     horizontal-alignment: right;
     vertical-alignment: center;
     font-weight: 400;
-    color: #333;
+    color: enabled == true ? #333 : #aaa;
     padding-right: 16px;
     width: 120px;
     vertical-stretch: 0;
@@ -86,7 +89,7 @@ export component AppWindow inherits Window {
     title: "Camera Viewer";
     min-height: 600px;
     min-width: 800px;
-    preferred-height: 1024px;
+    preferred-height: 768px;
     preferred-width: 1280px;
 
     in-out property <image> camframe;
@@ -104,13 +107,16 @@ export component AppWindow inherits Window {
     in-out property <int> valatpix: 0;
 
     HorizontalBox {
+        y: 48px;
         spacing: 12px;
         padding-bottom: 12px;
         padding-top: 20px;
         padding-left: 16px;
         padding-right: 16px;
+
         VerticalBox {
             padding: 0px;
+
             GroupBox {
                 title: "Display Settings";
                 padding: 8px;
@@ -126,11 +132,10 @@ export component AppWindow inherits Window {
                         }
 
                         ComboBox {
-                            height: 30px;
+                            max-height: 30px;
                             width: 200px;
                             model: ["Parula", "Grayscale", "Hot", "Red"];
                             selected(value) => {
-                                debug("Selected colormap: " + value);
                                 Shared.colormap = value;
                                 Shared.view-changed();
                             }
@@ -145,7 +150,7 @@ export component AppWindow inherits Window {
                         HorizontalLayout {
                             spacing: 16px;
                             Slider {
-                                height: 30px;
+                                preferred-height: 30px;
                                 width: 120px;
                                 minimum: -1.0;
                                 maximum: 1.0;
@@ -180,6 +185,26 @@ export component AppWindow inherits Window {
 
                     Row {
                         LabelText {
+                            text: "Manual Range";
+                            enabled: !Shared.autoscale;
+                        }
+
+                        ToggleSwitch {
+                            checked <=> Shared.manualfc;
+                            enabled: !Shared.autoscale;
+                            toggled(value) => {
+                                Shared.manualfc_min = Shared.histxrange.min;
+                                Shared.manualfc_max = Shared.histxrange.max;
+                                debug(Shared.manualfc_min, Shared.manualfc_max);
+                                Shared.manualfc = value;
+                                Shared.view-changed();
+                            }
+                        }
+                    }
+
+                    Row {
+
+                        LabelText {
                             text: "Show Axes";
                         }
 
@@ -187,7 +212,6 @@ export component AppWindow inherits Window {
                             checked: show-axes;
                             toggled(value) => {
                                 show-axes = value;
-                                debug("Show Axes: " + (value == false ? "false" : "true"));
                             }
                         }
                     }
@@ -200,7 +224,6 @@ export component AppWindow inherits Window {
                         ToggleSwitch {
                             checked: show_colorbar;
                             toggled(value) => {
-                                debug("Show Colorbar: " + (value == false ? "false" : "true"));
                                 show_colorbar = value;
                             }
                         }
@@ -263,9 +286,8 @@ export component AppWindow inherits Window {
 
             GroupBox {
                 title: "Histogram";
-                padding: 8px;
-                min-height: 200px;
                 PlotBox {
+                    preferred-height: 320px;
                     x-label: "Pixel Value";
                     y-label: "Frequency";
                 }
@@ -283,7 +305,6 @@ export component AppWindow inherits Window {
             Rectangle {
 
                 padding-top: 24px;
-
 
                 // Some computations on positions...
                 property <length> top-pad: 12px;
@@ -303,12 +324,12 @@ export component AppWindow inherits Window {
                     x: image_display_xoffset;
                     y: image_display_yoffset;
                     Image {
-                        source: camframe;
+                        source: Shared.displayimage(image_display_width, image_display_height);
                         x: 0;
                         y: 0;
-                        width: 100%;
-                        height: 100%;
-                        image-fit: fill;
+                        width: image_display_width;
+                        height: image_display_height;
+                        image-fit: preserve;
                         image-rendering: pixelated;
                     }
                 }
@@ -333,6 +354,7 @@ export component AppWindow inherits Window {
                         height: selection.height / camframe_height * image_display_height;
                         border-width: 1px;
                         border-color: yellow;
+                        border-radius: 2px;
                         background: transparent;
                     }
 
@@ -370,8 +392,8 @@ export component AppWindow inherits Window {
                                     if (selection.width < 2 || selection.height < 2) {
                                         selection = { x: 0, y: 0, width: 0, height: 0 };
                                     } else {
-                                        debug("Updating Selection");
                                     }
+                                    Shared.view_changed();
                                 }
                             }
                         }
@@ -508,3 +530,4 @@ export component AppWindow inherits Window {
         }
     } // main horizontal box
 } // main window
+

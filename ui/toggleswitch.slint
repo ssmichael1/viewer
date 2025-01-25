@@ -5,7 +5,7 @@ export component ToggleSwitch inherits Rectangle {
     in-out property <string> text;
     in-out property <bool> checked;
     in-out property <bool> enabled <=> touch-area.enabled;
-    height: 20px;
+    preferred-height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
@@ -16,7 +16,7 @@ export component ToggleSwitch inherits Rectangle {
             border-width: 1px;
             border-radius: root.height / 2;
             border-color: self.background.darker(25%);
-            background: root.enabled ? (root.checked ? Palette.background : Palette.background) : white;
+            background: root.enabled ? (root.checked ? Palette.selection-background : Palette.background) : white;
             animate background { duration: 100ms; }
 
             bubble := Rectangle {
@@ -27,7 +27,7 @@ export component ToggleSwitch inherits Rectangle {
                 x: 4px + self.a * (indicator.width - bubble.width - 8px);
                 property <float> a: root.checked ? 1 : 0;
                 //background: root.checked ? Palette.accent-foreground : (root.enabled ? Palette.accent-background : gray);
-                background: root.enabled ? Palette.selection-foreground : gray;
+                background: root.enabled ? (root.checked ? Palette.background : Palette.selection-background) : gray;
                 animate a, background {
                     duration: 250ms;
                     easing: ease;
