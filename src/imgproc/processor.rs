@@ -2,6 +2,7 @@ use crate::CameraFrame;
 
 use super::procresult::ProcResult;
 use crate::cameraframe::MonoPixel;
+use crate::gui::FCScaleType;
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::gui::GuiParams;
@@ -39,16 +40,19 @@ where
         let min = frame.data.minval();
         let max = frame.data.maxval();
         let histmin = f64::powf(2.0, f64::log2(min.to_f64().unwrap()).floor());
+        let histmin = f64::min(histmin, 0.0);
         let histmax = f64::powf(2.0, f64::log2(max.to_f64().unwrap()).ceil());
         let nbins = 256;
-        let histdelta: f64 = (histmax - histmin) / nbins as f64;
-        let bins = (0..nbins)
-            .map(|i| (histmin + i as f64 * histdelta) as i32)
+        let histdelta = ((histmax - histmin) / nbins as f64).ceil() as i32;
+
+        let histmin = histmin as i32;
+        let bins = (0..(nbins + 1))
+            .map(|i| histmin + i * histdelta)
             .collect::<Vec<i32>>();
-        let mut hist = vec![0; nbins];
+        let mut hist = vec![0; (nbins + 1) as usize];
 
         frame.data.data.iter().for_each(|&x| {
-            let bin = ((x.to_f64().unwrap() - histmin) / histdelta).floor() as usize;
+            let bin = ((x.to_i32().unwrap() - histmin) / histdelta) as usize;
             hist[bin] += 1;
         });
         (bins, hist)
@@ -69,11 +73,15 @@ where
         let cmap = crate::colormap::from_string(params.colorscale.as_str())
             .unwrap_or(crate::colormap::grayscale());
 
-        let (minscale, maxscale) = match params.auto_scale {
-            true => (frame.data.minval(), frame.data.maxval()),
-            false => (
-                T::from(params.scale_range.0).unwrap(),
-                T::from(params.scale_range.1).unwrap(),
+        let (minscale, maxscale) = match params.fcscaletype {
+            FCScaleType::Auto => (frame.data.minval(), frame.data.maxval()),
+            FCScaleType::Manual => (
+                T::from(params.scale_range.0).unwrap_or(T::zero()),
+                T::from(params.scale_range.1).unwrap_or(T::one()),
+            ),
+            FCScaleType::Max => (
+                T::zero(),
+                T::from((1_u32 << frame.bit_depth as u32) - 1).unwrap(),
             ),
         };
 

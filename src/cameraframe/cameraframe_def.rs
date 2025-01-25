@@ -1,4 +1,5 @@
 use super::FrameData;
+use super::MonoPixel;
 use super::Pixel;
 
 #[derive(Clone)]
@@ -42,6 +43,20 @@ where
             center_of_integration,
             bit_depth,
             data: raw,
+        }
+    }
+}
+
+impl<T> Default for CameraFrame<T>
+where
+    T: Pixel,
+{
+    fn default() -> Self {
+        CameraFrame {
+            exposure: 0.0,
+            center_of_integration: chrono::Utc::now(),
+            bit_depth: 12,
+            data: FrameData::<T>::default(),
         }
     }
 }

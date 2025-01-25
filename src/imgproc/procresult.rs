@@ -22,3 +22,17 @@ where
     pub histogram: (Vec<i32>, Vec<i32>),
     pub fcrange: (i32, i32),
 }
+
+impl<T> Default for ProcResult<T>
+where
+    T: MonoPixel,
+{
+    fn default() -> Self {
+        ProcResult {
+            rawframe: CameraFrame::<T>::default(),
+            displayimage: FrameData::<RGBAPixel>::default(),
+            histogram: (vec![], vec![]),
+            fcrange: (0, 4096),
+        }
+    }
+}

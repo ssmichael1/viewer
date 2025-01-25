@@ -1,4 +1,6 @@
+use super::MonoPixel;
 use super::Pixel;
+use super::RGBAPixel;
 
 #[derive(Debug, Clone)]
 pub struct FrameData<T>
@@ -8,6 +10,19 @@ where
     pub width: u32,
     pub height: u32,
     pub data: Vec<T>,
+}
+
+impl<T> Default for FrameData<T>
+where
+    T: Pixel,
+{
+    fn default() -> Self {
+        FrameData {
+            width: 512,
+            height: 512,
+            data: vec![T::default(); 512 * 512],
+        }
+    }
 }
 
 impl<T> FrameData<T>
