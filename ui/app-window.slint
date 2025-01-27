@@ -6,8 +6,6 @@ import {GroupBox, GroupBoxCollapsible} from "groupbox.slint";
 
 
 
-
-
 component LabelText inherits Text {
     in-out property <bool> enabled: true;
 
@@ -15,7 +13,7 @@ component LabelText inherits Text {
     horizontal-alignment: right;
     vertical-alignment: center;
     font-weight: 400;
-    color: enabled == true ? #333 : #aaa;
+    color: enabled == true ? Palette.foreground : Palette.alternate-foreground;
     padding-right: 16px;
     width: 120px;
     max-height: 20px;
@@ -82,6 +80,33 @@ export component AppWindow inherits Window {
 
         VerticalBox {
             padding: 0px;
+            GroupBoxCollapsible {
+                title: "Camera Controls";
+                padding: 8px;
+
+                GridLayout {
+                    padding: 16px;
+                    spacing-horizontal: 16px;
+                    spacing-vertical: 12px;
+                    Row {
+                        ComboBox {
+                            max-height: 30px;
+                            model: ["Camera 1", "Camera 2", "Camera 3"];
+                            selected(value) => {
+                                // Do something
+                            }
+                        }
+
+                        Button {
+                            text: "Connect";
+                            clicked => {
+                                // Do something
+                            }
+                        }
+                    }
+                }
+            }
+
             GroupBoxCollapsible {
                 title: "Display Settings";
                 padding: 8px;
@@ -250,14 +275,13 @@ export component AppWindow inherits Window {
 
             GroupBoxCollapsible {
                 title: "Histogram";
-                visoncollapse: false;
                 PlotBox {
                     padding-top: 24px;
 
                     min-height: 64px;
                     preferred-height: 320px;
                     x-label: "Pixel Value";
-                    y-label: "Frequency";
+                    y-label: "Counts";
                 }
             }
         } // end of vertical box

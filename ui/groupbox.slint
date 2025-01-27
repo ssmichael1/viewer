@@ -3,9 +3,8 @@ import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider 
 export component GroupBoxCollapsible {
     in-out property <string> title: "GroupBox";
     in-out property <int> font-size: 14;
-    in-out property <int> font-weight: 700;
+    in-out property <int> font-weight: 600;
     in-out property <bool> dropped: true;
-    in-out property <bool> visoncollapse: true;
 
     property <float> a: dropped ? 1 : 0;
     property <length> cmheight: a * content.preferred-height + topbar.height;
@@ -15,7 +14,7 @@ export component GroupBoxCollapsible {
     i-background := Rectangle {
         border-width: 1px;
         border-radius: 6px;
-        border-color: #555;
+        border-color: Palette.border;
         drop-shadow-blur: 4px;
         drop-shadow-color: #333;
         background: Palette.background;
@@ -58,14 +57,14 @@ export component GroupBoxCollapsible {
             font-weight: font-weight;
             y: 4px;
             x: 32px;
-            color: #555;
+            color: Palette.foreground;
         }
     }
 
     content := VerticalBox {
         spacing: 6px;
         padding-top: topbar.height + 4px;
-        visible: a > 0.9999 || visoncollapse ? true : false;
+        visible: a > 0.25 ? true : false;
         padding: 8px;
         @children
     }
