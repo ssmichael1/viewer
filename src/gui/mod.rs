@@ -105,7 +105,7 @@ impl Gui {
 
                 let xpix = ui.get_xpix() as u32;
                 let ypix = ui.get_ypix() as u32;
-                ui.set_valatpix(result.rawframe.data.at(xpix, ypix) as i32);
+                ui.set_valatpix(result.rawframe.data.at(xpix, ypix).0 as i32);
 
                 let (mean, var) = result.rawframe.data.mean_and_var();
                 ui.set_meantext(slint::SharedString::from(format!("{:.2}", mean)));
@@ -116,8 +116,8 @@ impl Gui {
     }
 
     fn update_colorbar(ui: &AppWindow) {
-        let cmap = crate::colormap::from_string(ui.global::<Shared>().get_colormap().as_str())
-            .unwrap_or(crate::colormap::grayscale());
+        let cmap = camera::colormap::from_string(ui.global::<Shared>().get_colormap().as_str())
+            .unwrap_or(camera::colormap::grayscale());
         let gamma = ui.global::<Shared>().get_gamma();
 
         // We have to reverse the order of the colormap to match the GUI's expectations
@@ -294,8 +294,9 @@ impl Gui {
                 let raw = &proc.read().unwrap().rawframe.data;
 
                 // Get the colormap
-                let cmap = crate::colormap::from_string(params.read().unwrap().colorscale.as_str())
-                    .unwrap_or(crate::colormap::grayscale());
+                let cmap =
+                    camera::colormap::from_string(params.read().unwrap().colorscale.as_str())
+                        .unwrap_or(camera::colormap::grayscale());
                 let gamma = params.read().unwrap().gamma;
                 let maxcolor = 255_i64;
                 let (minscale, maxscale) = match params.read().unwrap().fcscaletype {
@@ -321,10 +322,10 @@ impl Gui {
                 // Create the RGBA image
                 raw.data.iter().enumerate().for_each(|(i, x)| {
                     let idx = match (gamma - 1.0).abs() < 0.02 {
-                        true => (((*x as i64 - minscale as i64) * maxcolor / range as i64)
+                        true => (((x.0 as i64 - minscale as i64) * maxcolor / range as i64)
                             .clamp(0, 255) as usize)
                             .min(255),
-                        false => (((*x as f32 - minscale as f32) / range as f32)
+                        false => (((x.0 as f32 - minscale as f32) / range as f32)
                             .powf(1.0 / gamma as f32)
                             * maxcolor as f32)
                             .clamp(0.0, 255.0) as usize,

@@ -11,16 +11,15 @@ name = "viewer"
 path = "src/main.rs"
 
 [dependencies]
-svbony = { path = "../svbony" } # used for testingitertools = "0.14.0"
+camera = { path = "../camera" }
 thiserror = "2.0.11"
 num-traits = "0.2.18"
 chrono = "0.4.39"
 png = "0.17.16"
 slint = "1.9.2"
 tiny-skia = "0.11.4"
-rand = "0.8.4"                  # used for testing
-rand_distr = "0.4.2"            # used for testing
 fast_image_resize = "5.1.1"
+rgb = "0.8.5"
 
 [dev-dependencies]
 chrono = "0.4.39" # used for testing

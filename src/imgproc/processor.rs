@@ -1,8 +1,9 @@
-use crate::CameraFrame;
-
 use super::procresult::ProcResult;
-use crate::cameraframe::MonoPixel;
 use crate::gui::FCScaleType;
+
+use camera::MonoCameraFrame;
+use camera::MonoPixel;
+
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::gui::GuiParams;
@@ -36,7 +37,7 @@ where
         self.sink = Some(Box::new(sink));
     }
 
-    fn compute_histogram(frame: &CameraFrame<T>) -> (Vec<i32>, Vec<i32>) {
+    fn compute_histogram(frame: &MonoCameraFrame<T>) -> (Vec<i32>, Vec<i32>) {
         let min = frame.data.minval();
         let max = frame.data.maxval();
         let histmin = f64::powf(2.0, f64::log2(min.to_f64().unwrap()).floor());
@@ -63,7 +64,7 @@ where
     ///
     /// Then run the "sink" function on that result when complete
     ///
-    pub fn process_frame(&mut self, frame: CameraFrame<T>) {
+    pub fn process_frame(&mut self, frame: MonoCameraFrame<T>) {
         // Parameters for the GUI
         let params = match &self.params {
             Some(f) => f.read().unwrap().clone(),

@@ -1,5 +1,5 @@
-use crate::cameraframe::MonoPixel;
-use crate::CameraFrame;
+use camera::MonoCameraFrame;
+use camera::MonoPixel;
 
 ///
 /// Output of image processing chain
@@ -15,7 +15,7 @@ pub struct ProcResult<T>
 where
     T: MonoPixel,
 {
-    pub rawframe: CameraFrame<T>,
+    pub rawframe: MonoCameraFrame<T>,
     pub histogram: (Vec<i32>, Vec<i32>),
     pub fcrange: (i32, i32),
 }
@@ -26,7 +26,7 @@ where
 {
     fn default() -> Self {
         ProcResult {
-            rawframe: CameraFrame::<T>::default(),
+            rawframe: MonoCameraFrame::<T>::default(),
             histogram: (vec![], vec![]),
             fcrange: (0, 4096),
         }

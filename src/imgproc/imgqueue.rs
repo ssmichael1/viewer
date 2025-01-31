@@ -1,5 +1,6 @@
-use crate::cameraframe::CameraFrame;
-use crate::cameraframe::MonoPixel;
+use camera::MonoCameraFrame;
+use camera::MonoPixel;
+
 use std::sync::Arc;
 use std::sync::Condvar;
 use std::sync::Mutex;
@@ -8,11 +9,13 @@ use std::thread;
 /// A simple queue with a way to add images when they are received,
 /// and pull them off the queue and process them.
 ///
+
+#[derive(Clone)]
 pub struct ImageQueue<T>
 where
     T: MonoPixel + 'static,
 {
-    framelist: Arc<Mutex<Vec<CameraFrame<T>>>>,
+    framelist: Arc<Mutex<Vec<MonoCameraFrame<T>>>>,
     framelistsync: Arc<(Mutex<()>, Condvar)>,
 }
 
@@ -28,7 +31,7 @@ where
     }
 
     /// Start the image processing chain when a frame is available
-    pub fn on_frame_available(&self, frame: CameraFrame<T>) {
+    pub fn add_frame_to_queue(&self, frame: MonoCameraFrame<T>) {
         let (lock, cvar) = &*self.framelistsync;
         let _guard = lock.lock().unwrap();
         self.framelist.lock().unwrap().push(frame);
@@ -37,7 +40,7 @@ where
 
     pub fn start<F>(&self, procfunc: F)
     where
-        F: Fn(CameraFrame<T>) + Send + 'static,
+        F: Fn(MonoCameraFrame<T>) + Send + 'static,
     {
         let framelistsync = self.framelistsync.clone();
         let framelist = self.framelist.clone();
