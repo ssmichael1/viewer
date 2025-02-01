@@ -4,6 +4,8 @@
 mod gui;
 mod imgproc;
 
+use camera::CameraError;
+use camera::CameraFrameType;
 use camera::MonoCameraFrame;
 
 use imgproc::ImageQueue;
@@ -35,15 +37,17 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         eprintln!("No cameras found");
         return Ok(());
     }
+    println!("Found {} cameras", cameras.len());
+    cameras.iter().for_each(|c| println!("{}", c.name));
 
     println!("Found camera {}", cameras.first().unwrap().name);
-    let mut cam0 = (cameras.first().unwrap().get_camera)();
+    let mut cam0 = (cameras.last().unwrap().get_camera)();
     cam0.connect()?;
 
-    let _ = cam0.on_frame_available(Box::new(move |frametype| {
-        if let camera::CameraFrameType::Mono16(frame) = frametype {
+    let _ = cam0.set_frame_callback(Box::new(move |frametype| -> Result<(), CameraError> {
+        if let CameraFrameType::Mono16(frame) = frametype {
             imgqueue.add_frame_to_queue(frame);
-        };
+        }
         Ok(())
     }));
     cam0.start()?;
