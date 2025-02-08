@@ -1,0 +1,41 @@
+export component LED inherits Rectangle {
+
+    in-out property <length> diameter: 80px;
+    in-out property <color> ledcolor: #cc0000;
+
+    width: self.diameter;
+    height: self.diameter;
+    border-radius: self.width / 2;
+
+    Rectangle {
+        width: 95%;
+        height: 95%;
+        border-radius: self.width / 2;
+        background: lightgray;
+        border-color: #555;
+        border-width: 0.5px;
+
+        drop-shadow-offset-x: 2px;
+        drop-shadow-offset-y: 2px;
+        drop-shadow-color: #00000080;
+        drop-shadow-blur: 5px;
+    }
+
+    Rectangle {
+        width: 72%;
+        height: 72%;
+        border-radius: self.width / 2;
+        background: gray;
+        clip: true;
+
+        Rectangle {
+            width: 130%;
+            height: 130%;
+            x: parent.width * 0.4 - self.width / 2;
+            y: parent.height * 0.35 - self.width / 2;
+            //border-radius: self.width / 2;
+            background: @radial-gradient(circle, #cccccc 0%, ledcolor 60%, ledcolor 100%);
+            clip: false;
+        }
+    }
+}

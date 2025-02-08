@@ -1,0 +1,221 @@
+
+export enum PlotType { line, bar, fill, marker}
+export enum MarkerType { circle, dot, x }
+export struct PlotPoint { x: float, y: float} 
+export struct PlotData { points: [PlotPoint] , type: PlotType, color: color, fillcolor: color, label: string, linewidth: length, markersize: length, markertype: MarkerType}
+export struct PlotRange { min: float, max: float}
+
+export global PlotGlobal {
+    pure callback drawline(points: [PlotPoint], xrange: PlotRange, yrange: PlotRange, aspect: float) -> string;
+    pure callback drawfill(points: [PlotPoint], xrange: PlotRange, yrange: PlotRange, aspect: float) -> string;
+}
+
+export component PlotBox inherits Rectangle {
+    in-out property <string> xlabel: "X Axis";
+    in-out property <string> ylabel: "Y Axis";
+    in-out property <length> xlabelsize: 1.2rem;
+    in-out property <length> ylabelsize: 1.2rem;
+
+    in-out property <length> ytopmargin: 16px;
+    in-out property <PlotRange> xrange: { min: 0, max: 10 };
+    in-out property <[float]> xticks: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    in-out property <PlotRange> yrange: { min: 0, max: 10 };
+    in-out property <[float]> yticks: [0, 2, 4, 6, 8, 10];
+    in-out property <length> ytickpad: 2rem;
+    in-out property <bool> showgrid: true;
+    in-out property <[PlotData]> plotdata: [];
+    padding: 0px;
+
+    axh := Rectangle {
+        width: parent.width;
+        x: 0;
+        y: 0;
+        height: parent.height;
+
+        xaxh := Rectangle {
+            y: parent.height - self.height;
+            height: xlh.height + xlineh.height + 10px;
+            xlh := Rectangle {
+                width: xlineh.width;
+                height: xlth.height + 12px;
+                x: yaxh.width;
+                y: parent.height - xlth.height - 2px;
+                xlth := Text {
+                    y: 0;
+                    text <=> xlabel;
+                    font-size: xlabelsize;
+                    color: #333;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            xlineh := Rectangle {
+                x: yaxh.width;
+                y: parent.height - xlh.height - 12px;
+                width: parent.width - self.x - 24px;
+                height: 2px;
+                border-color: black;
+                border-width: 1.2px;
+            }
+
+            for xt in xticks: Rectangle {
+                x: (xt - xrange.min) / (xrange.max - xrange.min) * xlineh.width + xlineh.x;
+                y: xlineh.y - 2px;
+                width: 2px;
+                height: 6px;
+                border-color: #333;
+                border-width: 1.2px;
+            }
+            for xt in xticks: Rectangle {
+                x: (xt - xrange.min) / (xrange.max - xrange.min) * xlineh.width + xlineh.x - xticktext.width / 2;
+                y: xlineh.y + 6px;
+
+                xticktext := Text {
+                    x: 0;
+                    y: -self.height / 2 + 6px;
+                    text: xt;
+                    font-size: 1.2rem;
+                    color: #333;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        yaxh := Rectangle {
+            height: parent.height - xaxh.height;
+            width: 1.25rem + ytickpad;
+            y: ytopmargin;
+            x: 0;
+            ylineh := Rectangle {
+                x: ylh.width + ytickpad;
+                y: 0;
+                width: 2px;
+                height: parent.height - ytopmargin;
+                border-color: black;
+                border-width: 1.2px;
+            }
+
+            ylh := Rectangle {
+                width: ylth.height;
+                height: ylineh.height;
+                y: ylineh.y;
+                x: 0px;
+                ylth := Text {
+                    x: 4px;
+                    y: self.width / 2 + parent.height / 2;
+                    text <=> ylabel;
+                    font-size: ylabelsize;
+                    color: #555;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    rotation-angle: -90deg;
+                //rotation-origin-x: self.width / 2;
+                //rotation-origin-y: self.height / 2;
+                rotation-origin-x: 0;
+                    rotation-origin-y: 0;
+                }
+            }
+
+            for yt in yticks: Rectangle {
+                x: ylineh.x - 2px;
+                y: (yt - yrange.min) / (yrange.max - yrange.min) * ylineh.height + ylineh.y;
+                width: 6px;
+                height: 2px;
+                border-color: #333;
+                border-width: 1.2px;
+            }
+            for yt in yticks: Rectangle {
+                x: ylineh.x - 4px - yticktext.width;
+                y: (1.0 - (yt - yrange.min) / (yrange.max - yrange.min)) * ylineh.height - yticktext.height / 2 + ylineh.y;
+                yticktext := Text {
+                    x: 0;
+                    y: 0;
+                    text: yt;
+                    font-size: 1.2rem;
+                    color: #333;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+            }
+        } // end of y axis
+        Rectangle {
+            x: xlineh.x + 2px;
+            y: yaxh.y;
+            width: xlineh.width;
+            height: ylineh.height;
+            if (showgrid): Rectangle {
+                width: 100%;
+                height: 100%;
+                for xt in xticks: Rectangle {
+                    x: (xt - xrange.min) / (xrange.max - xrange.min) * parent.width + parent.x;
+                    y: 0;
+                    width: 2px;
+                    height: parent.height;
+                    Path {
+                        viewbox-width: 0;
+                        viewbox-height: 100;
+                        stroke-width: 0.5px;
+                        stroke: #777;
+                        commands: "M 0 0 L 0 100";
+                    }
+                }
+                for yt in yticks: Rectangle {
+                    x: 0;
+                    y: (1.0 - (yt - yrange.min) / (yrange.max - yrange.min)) * parent.height + parent.y;
+                    width: parent.width;
+                    height: 2px;
+                    Path {
+                        viewbox-width: 100;
+                        viewbox-height: 0;
+                        stroke-width: 0.5px;
+                        stroke: #777;
+                        commands: "M 0 0 L 100 0";
+                    }
+                }
+            }
+            for pd in plotdata: Rectangle {
+                property <float> aspect: (parent.height / 1px) / (parent.width / 1px);
+
+                if (pd.type == PlotType.line || pd.type == PlotType.fill): Path {
+                    commands: pd.type == PlotType.line ? PlotGlobal.drawline(pd.points, xrange, yrange, aspect) : PlotGlobal.drawfill(pd.points, xrange, yrange, aspect);
+                    stroke: pd.color;
+                    stroke-width: pd.linewidth;
+                    fill: pd.type == PlotType.fill ? pd.fillcolor : #ffffff00;
+                    viewbox-width: 1000;
+                    viewbox-height: 1000.0 * aspect;
+                }
+                if (pd.type == PlotType.bar): Rectangle {
+                    property <length> barwidth: self.width / (xrange.max - xrange.min) * 0.6;
+                    for p in pd.points: Rectangle {
+                        x: (p.x - xrange.min) / (xrange.max - xrange.min) * parent.width + parent.x - barwidth / 2 + 1px;
+                        y: (1.0 - (p.y - yrange.min) / (yrange.max - yrange.min)) * parent.height + parent.y;
+                        width: barwidth;
+                        height: (p.y - yrange.min) / (yrange.max - yrange.min) * parent.height;
+                        background: pd.fillcolor;
+                        border-color: pd.color;
+                        border-width: pd.linewidth;
+                    }
+                }
+                if (pd.type == PlotType.marker): Rectangle {
+                    property <length> offset: pd.markersize / 2;
+                    for p in pd.points: Rectangle {
+
+                        x: Math.min(1,Math.max((p.x - xrange.min) / (xrange.max - xrange.min),0)) * parent.width + parent.x - offset;
+                        y: Math.min(1,Math.max((1.0 - (p.y - yrange.min) / (yrange.max - yrange.min)),0)) * parent.height + parent.y - offset;
+                        width: pd.markersize;
+                        height: pd.markersize;
+                        if (pd.markertype == MarkerType.x): Path {
+                            viewbox-width: 100;
+                            viewbox-height: 100;
+                            stroke-width: pd.linewidth;
+                            stroke: pd.color;
+                            commands: "M 0 0 L 100 100 M 0 100 L 100 0 Z";
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
