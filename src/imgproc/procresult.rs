@@ -1,5 +1,4 @@
-use camera::MonoCameraFrame;
-use camera::MonoPixel;
+use camera::CameraFrame;
 
 ///
 /// Output of image processing chain
@@ -11,24 +10,22 @@ use camera::MonoPixel;
 /// * Histogram of the image
 ///
 #[derive(Clone)]
-pub struct ProcResult<T>
-where
-    T: MonoPixel,
-{
-    pub rawframe: MonoCameraFrame<T>,
+pub struct ProcResult {
+    pub rawframe: CameraFrame,
     pub histogram: (Vec<i32>, Vec<i32>),
     pub fcrange: (i32, i32),
+    pub mean: Option<f64>,
+    pub var: Option<f64>,
 }
 
-impl<T> Default for ProcResult<T>
-where
-    T: MonoPixel,
-{
+impl Default for ProcResult {
     fn default() -> Self {
         ProcResult {
-            rawframe: MonoCameraFrame::<T>::default(),
+            rawframe: CameraFrame::default(),
             histogram: (vec![], vec![]),
             fcrange: (0, 4096),
+            mean: None,
+            var: None,
         }
     }
 }

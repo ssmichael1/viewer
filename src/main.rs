@@ -5,8 +5,7 @@ mod gui;
 mod imgproc;
 
 use camera::CameraError;
-use camera::CameraFrameType;
-use camera::MonoCameraFrame;
+use camera::CameraFrame;
 
 use imgproc::ImageQueue;
 use std::error::Error;
@@ -16,7 +15,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut thegui = gui::Gui::new()?;
 
     // create an image processing chain
-    let imgproc = imgproc::ImageProcessor::<u16>::new();
+    let imgproc = imgproc::ImageProcessor::new();
     // set parameter structure for image processor
     imgproc.lock().unwrap().set_params(thegui.get_params());
 
@@ -24,13 +23,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     imgproc.lock().unwrap().set_sink(thegui.on_processed());
 
     // Image queue: creates a separate thread to process frames
-    let imgqueue = ImageQueue::<u16>::new();
+    let imgqueue = ImageQueue::new();
     // Process images whenever a frame arrives
     let pclone = imgproc.clone();
     // Start the image queue (creates a thread)
-    imgqueue.start(move |frame: MonoCameraFrame<u16>| {
-        pclone.lock().unwrap().process_frame(frame);
-    });
+    imgqueue.start(move |frame: CameraFrame| pclone.lock().unwrap().process_frame(frame));
 
     let cameras = camera::get_available_cameras();
     if cameras.is_empty() {
@@ -42,12 +39,10 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     println!("Found camera {}", cameras.first().unwrap().name);
     let mut cam0 = (cameras.last().unwrap().get_camera)();
-    cam0.connect()?;
+    //cam0.connect()?;
 
-    let _ = cam0.set_frame_callback(Box::new(move |frametype| -> Result<(), CameraError> {
-        if let CameraFrameType::Mono16(frame) = frametype {
-            imgqueue.add_frame_to_queue(frame);
-        }
+    let _ = cam0.set_frame_callback(Box::new(move |frame| -> Result<(), CameraError> {
+        imgqueue.add_frame_to_queue(frame);
         Ok(())
     }));
     cam0.start()?;

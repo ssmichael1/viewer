@@ -4,9 +4,9 @@ export component GroupBoxCollapsible {
     in-out property <string> title: "GroupBox";
     in-out property <int> font-size: 14;
     in-out property <int> font-weight: 600;
-    in-out property <bool> dropped: true;
+    in-out property <bool> collapsed: false;
 
-    property <float> a: dropped ? 1 : 0;
+    property <float> a: collapsed ? 0 : 1;
     property <length> cmheight: a * content.preferred-height + topbar.height;
 
     height: cmheight;
@@ -35,7 +35,7 @@ export component GroupBoxCollapsible {
             width: 100%;
             height: 100%;
             clicked => {
-                dropped = !dropped;
+                collapsed = !collapsed;
             }
         }
 

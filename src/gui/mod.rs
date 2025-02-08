@@ -42,7 +42,7 @@ impl Default for GuiParams {
 pub struct Gui {
     pub ui: Rc<RefCell<AppWindow>>,
     pub params: Arc<RwLock<GuiParams>>,
-    pub proc: Arc<RwLock<ProcResult<u16>>>,
+    pub proc: Arc<RwLock<ProcResult>>,
 }
 
 impl Gui {
@@ -50,66 +50,120 @@ impl Gui {
         self.params.clone()
     }
 
-    pub fn on_processed(&self) -> Box<dyn Fn(ProcResult<u16>) + Send + 'static> {
+    pub fn on_processed(&self) -> Box<dyn Fn(&ProcResult) + Send + 'static> {
         let ui_handle: slint::Weak<AppWindow> = self.ui.borrow().as_weak();
         let proc = self.proc.clone();
+        let params = self.params.clone();
 
-        Box::new(move |result: ProcResult<u16>| {
+        Box::new(move |result: &ProcResult| {
             let ui_handle = ui_handle.clone();
-            let histxrange = (
-                *result.histogram.0.last().unwrap() as f32,
-                *result.histogram.0.first().unwrap() as f32,
-            );
 
             let maxhist = *result.histogram.1.iter().max().unwrap() as f64;
             let maxhist = f64::powf(2.0, f64::log2(maxhist).ceil());
 
-            let histyrange = (maxhist as f32, 0.0_f32);
+            let histyrange = PlotRange {
+                min: 0.0_f32,
+                max: maxhist as f32,
+            };
+            let histxrange = PlotRange {
+                min: *result.histogram.0.first().unwrap() as f32,
+                max: *result.histogram.0.last().unwrap() as f32,
+            };
 
             // Save the result
-            *proc.write().unwrap() = result;
+            *proc.write().unwrap() = result.clone();
+
             // Clone pointer for moving into closure
             let proc = proc.clone();
+            let params = params.clone();
 
             // GUI is single threaded, so we must populate the image in the GUI thread
             let _ = ui_handle.upgrade_in_event_loop(move |ui| {
                 let result = proc.read().unwrap();
                 let global = ui.global::<Shared>();
-                // Create the histogram points
 
-                let histpoints = slint::VecModel::from_slice(
-                    &result
-                        .histogram
-                        .0
-                        .iter()
-                        .zip(result.histogram.1.iter())
-                        .map(|(x, y)| (*x as f32, *y as f32))
-                        .collect::<Vec<(f32, f32)>>(),
-                );
-                let histline = slint::VecModel::from_slice(&[(
-                    slint::Color::from_argb_u8(255, 255, 0, 0).darker(0.5),
-                    slint::Color::from_argb_u8(255, 255, 0, 0).darker(1.4),
-                    1.0_f32,
-                    histpoints,
-                )]);
+                let histdata = slint::VecModel::from_slice(&[PlotData {
+                    points: slint::VecModel::from_slice(
+                        &result
+                            .histogram
+                            .0
+                            .iter()
+                            .zip(result.histogram.1.iter())
+                            .map(|(x, y)| PlotPoint {
+                                x: *x as f32,
+                                y: *y as f32,
+                            })
+                            .collect::<Vec<PlotPoint>>(),
+                    ),
+                    r#type: PlotType::Fill,
+                    color: slint::Color::from_argb_u8(255, 255, 0, 0).darker(0.5),
+                    fillcolor: slint::Color::from_argb_u8(255, 255, 0, 0).darker(1.4),
+                    label: slint::SharedString::from("Histogram"),
+                    linewidth: 1.0_f32,
+                    markersize: 1.0_f32,
+                    markertype: MarkerType::None,
+                }]);
+
+                let histxdelta = (histxrange.max - histxrange.min) / 8.0;
+                let histydelta = (histyrange.max - histyrange.min) / 8.0;
+                global.set_histxticks(slint::VecModel::from_slice(
+                    &(0..=8)
+                        .map(|i| histxrange.min + i as f32 * histxdelta)
+                        .collect::<Vec<f32>>(),
+                ));
+                global.set_histyticks(slint::VecModel::from_slice(
+                    &(0..=8)
+                        .map(|i| histyrange.min + i as f32 * histydelta)
+                        .collect::<Vec<f32>>(),
+                ));
+
                 // Setup the histogram
                 global.set_histxrange(histxrange);
                 global.set_histyrange(histyrange);
-                global.set_histdata(histline);
+                global.set_histdata(histdata);
 
                 // Create the image
-                ui.set_camframe_height(result.rawframe.data.height as i32);
-                ui.set_camframe_width(result.rawframe.data.width as i32);
+                ui.set_camframe_height(result.rawframe.height as i32);
+                ui.set_camframe_width(result.rawframe.width as i32);
 
-                global.set_fcrange((result.fcrange.1, result.fcrange.0));
+                {
+                    let p = params.read().unwrap();
+                    match p.fcscaletype {
+                        FCScaleType::Auto => {
+                            global.set_fcrange((result.fcrange.1, result.fcrange.0));
+                        }
+                        FCScaleType::Manual => {
+                            global.set_fcrange((p.scale_range.1, p.scale_range.0));
+                        }
+                        FCScaleType::Max => {
+                            global.set_fcrange((
+                                (1_u32 << result.rawframe.bit_depth.unwrap_or(12)) as i32 - 1,
+                                0,
+                            ));
+                        }
+                    }
+                }
 
-                let xpix = ui.get_xpix() as u32;
-                let ypix = ui.get_ypix() as u32;
-                ui.set_valatpix(result.rawframe.data.at(xpix, ypix).0 as i32);
+                let xpix = ui.get_xpix() as usize;
+                let ypix = ui.get_ypix() as usize;
+                match result.rawframe.pixeltype {
+                    camera::PixelType::Gray8 => {
+                        ui.set_valatpix(result.rawframe.at::<u8>(xpix, ypix).unwrap_or(0) as i32);
+                    }
+                    camera::PixelType::Gray16 => {
+                        ui.set_valatpix(result.rawframe.at::<u16>(xpix, ypix).unwrap_or(0) as i32);
+                    }
+                    _ => {}
+                };
 
-                let (mean, var) = result.rawframe.data.mean_and_var();
-                ui.set_meantext(slint::SharedString::from(format!("{:.2}", mean)));
-                ui.set_vartext(slint::SharedString::from(format!("{:.2}", var.sqrt())));
+                ui.set_meantext(slint::SharedString::from(format!(
+                    "{:.2}",
+                    result.mean.unwrap_or(0.0)
+                )));
+                ui.set_vartext(slint::SharedString::from(format!(
+                    "{:.2}",
+                    result.var.unwrap_or(0.0).sqrt()
+                )));
                 ui.window().request_redraw();
             });
         })
@@ -195,58 +249,100 @@ impl Gui {
             },
         );
 
-        // take a list of points and x,y ranges and return an SVG path as a string
-        // This is very inelegant, but it works
-        ui.global::<Shared>().on_linetosvg(
-            |p: slint::ModelRc<(f32, f32)>,
-             xrange: (f32, f32),
-             yrange: (f32, f32),
+        ui.global::<PlotGlobal>().on_drawline(
+            |points: slint::ModelRc<PlotPoint>,
+             xrange: PlotRange,
+             yrange: PlotRange,
              aspect: f32|
              -> slint::SharedString {
-                // The logic here is very confusing:
-                // x and y axes appear flipped from what I would expect
-
-                let xscale = 100.0 / (xrange.1 - xrange.0);
-                let yscale = 100.0 / (yrange.1 - yrange.0) * aspect;
+                let xscale = 100.0 / (xrange.max - xrange.min);
+                let yscale = 100.0 / (yrange.max - yrange.min) * aspect;
                 let mut svg = String::new();
 
                 // Remap to a reversible vector, then reverse
-                let p: Vec<(f32, f32)> = p.iter().collect();
-                let p: Vec<(f32, f32)> = p.into_iter().rev().collect();
+                let p: Vec<PlotPoint> = points.iter().collect();
+
+                if p.is_empty() {
+                    return slint::SharedString::from(" Z");
+                }
 
                 let m = p.first().unwrap();
                 svg.push_str(
                     format!(
                         "M {} {}",
-                        (100.0 - (m.0 - xrange.0) * xscale).clamp(0.0, 100.0),
-                        ((m.1 - yrange.0) * yscale).clamp(0.0, 100.0 * aspect)
+                        ((m.x - xrange.min) * xscale).clamp(0.0, 100.0),
+                        (100.0 * aspect - ((m.y - yrange.min) * yscale)).clamp(0.0, 100.0 * aspect)
                     )
                     .as_str(),
                 );
 
-                p.iter().skip(1).for_each(|(x, y)| {
-                    let x = (100.0 - (x - xrange.0) * xscale).clamp(0.0, 100.0);
-                    let y = ((y - yrange.0) * yscale).clamp(0.0, 100.0 * aspect);
+                p.iter().skip(1).for_each(|p| {
+                    let x = ((p.x - xrange.min) * xscale).clamp(0.0, 100.0);
+                    let y =
+                        (100.0 * aspect - (p.y - yrange.min) * yscale).clamp(0.0, 100.0 * aspect);
                     svg.push_str(format!(" L {} {}", x, y).as_str());
                 });
+                svg += " Z";
+                slint::SharedString::from(svg)
+            },
+        );
 
-                let ml = p.iter().last().unwrap();
+        ui.global::<PlotGlobal>().on_drawfill(
+            |points: slint::ModelRc<PlotPoint>,
+             xrange: PlotRange,
+             yrange: PlotRange,
+             aspect: f32|
+             -> slint::SharedString {
+                let xscale = 100.0 / (xrange.max - xrange.min);
+                let yscale = 100.0 / (yrange.max - yrange.min) * aspect;
+                let mut svg = String::new();
+
+                // Remap to a reversible vector, then reverse
+                let p: Vec<PlotPoint> = points.iter().collect();
+                let p: Vec<PlotPoint> = p.into_iter().rev().collect();
+
+                if p.is_empty() {
+                    return slint::SharedString::from("");
+                }
+
+                let m = p.first().unwrap();
+                svg.push_str(
+                    format!(
+                        "M {} {}",
+                        ((m.x - xrange.min) * xscale).clamp(0.0, 100.0),
+                        100.0 * aspect,
+                    )
+                    .as_str(),
+                );
+
+                let m = p.last().unwrap();
                 svg.push_str(
                     format!(
                         " L {} {}",
-                        (100.0 - (ml.0 - xrange.0) * xscale).clamp(0.0, 100.0),
-                        100.0 * aspect
+                        ((m.x - xrange.min) * xscale).clamp(0.0, 100.0),
+                        100.0 * aspect,
                     )
                     .as_str(),
                 );
+
+                p.iter().for_each(|p| {
+                    let x = ((p.x - xrange.min) * xscale).clamp(0.0, 100.0);
+                    let y =
+                        (100.0 * aspect - (p.y - yrange.min) * yscale).clamp(0.0, 100.0 * aspect);
+                    svg.push_str(format!("L {} {}", x, y).as_str());
+                });
+
+                let m = p.first().unwrap();
                 svg.push_str(
                     format!(
-                        " L {} {} Z",
-                        (100.0 - (m.0 - xrange.0) * xscale).clamp(0.0, 100.0),
-                        100.0 * aspect
+                        "L {} {}",
+                        ((m.x - xrange.min) * xscale).clamp(0.0, 100.0),
+                        100.0 * aspect,
                     )
                     .as_str(),
                 );
+                svg += " Z";
+
                 slint::SharedString::from(svg)
             },
         );
@@ -290,8 +386,8 @@ impl Gui {
                 let width = width as usize;
                 let height = height as usize;
 
+                let res = proc.read().unwrap();
                 let rawframe = &proc.read().unwrap().rawframe;
-                let raw = &proc.read().unwrap().rawframe.data;
 
                 // Get the colormap
                 let cmap =
@@ -299,43 +395,71 @@ impl Gui {
                         .unwrap_or(camera::colormap::grayscale());
                 let gamma = params.read().unwrap().gamma;
                 let maxcolor = 255_i64;
+
                 let (minscale, maxscale) = match params.read().unwrap().fcscaletype {
-                    FCScaleType::Auto => (raw.minval(), raw.maxval()),
+                    FCScaleType::Auto => (res.fcrange.0 as u16, res.fcrange.1 as u16),
                     FCScaleType::Manual => (
                         params.read().unwrap().scale_range.0 as u16,
                         params.read().unwrap().scale_range.1 as u16,
                     ),
-                    FCScaleType::Max => (0, (1_u32 << rawframe.bit_depth as u32) as u16),
+                    FCScaleType::Max => (0, (1_u32 << rawframe.bit_depth.unwrap() as u32) as u16),
                 };
                 let range = (maxscale - minscale).max(1);
 
-                if (unresized.width(), unresized.height()) != (raw.width, raw.height) {
+                if (unresized.width(), unresized.height())
+                    != (rawframe.width as u32, rawframe.height as u32)
+                {
                     unresized = fast_image_resize::images::Image::new(
-                        raw.width,
-                        raw.height,
+                        rawframe.width as u32,
+                        rawframe.height as u32,
                         fast_image_resize::PixelType::U8x4,
                     );
                 }
 
                 let cbuf = unresized.buffer_mut();
+                match rawframe.pixeltype {
+                    camera::PixelType::Gray8 => {
+                        rawframe.data.iter().enumerate().for_each(|(i, x)| {
+                            let idx = match (gamma - 1.0).abs() < 0.02 {
+                                true => ((*x as i64 - minscale as i64) * maxcolor / range as i64)
+                                    .clamp(0, 255) as usize,
+                                false => (((*x as f32 - minscale as f32) / range as f32)
+                                    .powf(1.0 / gamma as f32)
+                                    * maxcolor as f32)
+                                    .clamp(0.0, 255.0)
+                                    as usize,
+                            };
+                            cbuf[i * 4] = cmap[idx].r;
+                            cbuf[i * 4 + 1] = cmap[idx].g;
+                            cbuf[i * 4 + 2] = cmap[idx].b;
+                            cbuf[i * 4 + 3] = cmap[idx].a;
+                        });
+                    }
+                    camera::PixelType::Gray16 => {
+                        rgb::bytemuck::cast_slice::<u8, u16>(&rawframe.data)
+                            .iter()
+                            .enumerate()
+                            .for_each(|(i, x)| {
+                                let idx = match (gamma - 1.0).abs() < 0.02 {
+                                    true => ((*x as i64 - minscale as i64) * maxcolor
+                                        / range as i64)
+                                        .clamp(0, 255)
+                                        as usize,
+                                    false => (((*x as f32 - minscale as f32) / range as f32)
+                                        .powf(1.0 / gamma as f32)
+                                        * maxcolor as f32)
+                                        .clamp(0.0, 255.0)
+                                        as usize,
+                                };
+                                cbuf[i * 4] = cmap[idx].r;
+                                cbuf[i * 4 + 1] = cmap[idx].g;
+                                cbuf[i * 4 + 2] = cmap[idx].b;
+                                cbuf[i * 4 + 3] = cmap[idx].a;
+                            })
+                    }
 
-                // Create the RGBA image
-                raw.data.iter().enumerate().for_each(|(i, x)| {
-                    let idx = match (gamma - 1.0).abs() < 0.02 {
-                        true => (((x.0 as i64 - minscale as i64) * maxcolor / range as i64)
-                            .clamp(0, 255) as usize)
-                            .min(255),
-                        false => (((x.0 as f32 - minscale as f32) / range as f32)
-                            .powf(1.0 / gamma as f32)
-                            * maxcolor as f32)
-                            .clamp(0.0, 255.0) as usize,
-                    };
-                    let color = cmap[idx];
-                    cbuf[i * 4] = color.r;
-                    cbuf[i * 4 + 1] = color.g;
-                    cbuf[i * 4 + 2] = color.b;
-                    cbuf[i * 4 + 3] = color.a;
-                });
+                    _ => {}
+                };
 
                 // See if we need to re-allocate destination
                 if (resized.width(), resized.height()) != (width as u32, height as u32) {

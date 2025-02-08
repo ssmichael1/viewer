@@ -1,28 +1,24 @@
 use super::procresult::ProcResult;
-use crate::gui::FCScaleType;
 
-use camera::MonoCameraFrame;
-use camera::MonoPixel;
+use camera::CameraFrame;
+use camera::PixelType;
+use rgb::bytemuck;
 
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::gui::GuiParams;
 
-pub struct ImageProcessor<T>
-where
-    T: MonoPixel,
-{
+type ResultCallback = dyn Fn(&ProcResult) + 'static + Send;
+
+pub struct ImageProcessor {
     params: Option<Arc<RwLock<GuiParams>>>,
-    sink: Option<Box<dyn Fn(ProcResult<T>) + 'static + Send>>,
-    lastresult: Option<ProcResult<T>>,
+    sink: Option<Box<ResultCallback>>,
+    lastresult: Option<ProcResult>,
 }
 
-impl<T> ImageProcessor<T>
-where
-    T: MonoPixel,
-{
+impl ImageProcessor {
     pub fn new() -> Arc<Mutex<Self>> {
-        Arc::new(Mutex::new(ImageProcessor::<T> {
+        Arc::new(Mutex::new(ImageProcessor {
             params: None,
             sink: None,
             lastresult: None,
@@ -33,13 +29,37 @@ where
         self.params = Some(params);
     }
 
-    pub fn set_sink(&mut self, sink: impl Fn(ProcResult<T>) + 'static + Send) {
+    pub fn set_sink(&mut self, sink: impl Fn(&ProcResult) + 'static + Send) {
         self.sink = Some(Box::new(sink));
     }
 
-    fn compute_histogram(frame: &MonoCameraFrame<T>) -> (Vec<i32>, Vec<i32>) {
-        let min = frame.data.minval();
-        let max = frame.data.maxval();
+    fn compute_mean_and_var<T>(pixels: &[T]) -> (f64, f64)
+    where
+        T: num_traits::PrimInt,
+    {
+        let (sum, smusq) = pixels.iter().fold((0_i64, 0_i64), |(sum, smusq), &x| {
+            let x = x.to_i64().unwrap();
+            (sum + x, smusq + x * x)
+        });
+
+        let n = (pixels.len() as f64).max(2.0);
+        let mean = sum as f64 / n;
+        let var = (smusq as f64 - n * mean * mean) / (n - 1.0);
+        (mean, var)
+    }
+
+    fn compute_histogram<T>(pixels: &[T]) -> (i32, i32, Vec<i32>, Vec<i32>)
+    where
+        T: num_traits::PrimInt,
+    {
+        let mut min = T::max_value();
+        let mut max = T::min_value();
+
+        pixels.iter().for_each(|&x| {
+            min = min.min(x);
+            max = max.max(x);
+        });
+
         let histmin = f64::powf(2.0, f64::log2(min.to_f64().unwrap()).floor());
         let histmin = f64::min(histmin, 0.0);
         let histmax = f64::powf(2.0, f64::log2(max.to_f64().unwrap()).ceil());
@@ -51,12 +71,46 @@ where
             .map(|i| histmin + i * histdelta)
             .collect::<Vec<i32>>();
         let mut hist = vec![0; (nbins + 1) as usize];
-
-        frame.data.data.iter().for_each(|&x| {
+        pixels.iter().for_each(|&x| {
             let bin = ((x.to_i32().unwrap() - histmin) / histdelta) as usize;
             hist[bin] += 1;
         });
-        (bins, hist)
+
+        (min.to_i32().unwrap(), max.to_i32().unwrap(), bins, hist)
+    }
+
+    fn process_mono(&mut self, frame: CameraFrame) {
+        let (minval, maxval, bins, hist) = match frame.pixeltype {
+            PixelType::Gray8 => Self::compute_histogram(&frame.data),
+            PixelType::Gray16 => {
+                Self::compute_histogram(bytemuck::cast_slice::<u8, u16>(&frame.data))
+            }
+            _ => (0, 4096, vec![], vec![]),
+        };
+        let (mean, var) = match frame.pixeltype {
+            PixelType::Gray8 => Self::compute_mean_and_var(&frame.data),
+            PixelType::Gray16 => {
+                Self::compute_mean_and_var(bytemuck::cast_slice::<u8, u16>(&frame.data))
+            }
+            _ => (0.0, 0.0),
+        };
+
+        // Create the result
+        let res = ProcResult {
+            rawframe: frame,
+            histogram: (bins, hist),
+            fcrange: (minval, maxval),
+            mean: Some(mean),
+            var: Some(var),
+        };
+
+        // Store the result
+        self.lastresult = Some(res);
+
+        // Process the result
+        if let Some(sink) = &self.sink {
+            sink(self.lastresult.as_ref().unwrap());
+        }
     }
 
     ///
@@ -64,37 +118,9 @@ where
     ///
     /// Then run the "sink" function on that result when complete
     ///
-    pub fn process_frame(&mut self, frame: MonoCameraFrame<T>) {
-        // Parameters for the GUI
-        let params = match &self.params {
-            Some(f) => f.read().unwrap().clone(),
-            None => GuiParams::default(),
-        };
-
-        let (minscale, maxscale) = match params.fcscaletype {
-            FCScaleType::Auto => (frame.data.minval(), frame.data.maxval()),
-            FCScaleType::Manual => (
-                T::from(params.scale_range.0).unwrap_or(T::zero()),
-                T::from(params.scale_range.1).unwrap_or(T::one()),
-            ),
-            FCScaleType::Max => (
-                T::zero(),
-                T::from((1_u32 << frame.bit_depth as u32) - 1).unwrap(),
-            ),
-        };
-
-        let histogram = Self::compute_histogram(&frame);
-
-        let result = ProcResult {
-            rawframe: frame,
-            histogram,
-            fcrange: (minscale.to_i32().unwrap(), maxscale.to_i32().unwrap()),
-        };
-        if let Some(cb) = &self.sink {
-            self.lastresult = Some(result.clone());
-            cb(result);
-        } else {
-            self.lastresult = Some(result);
+    pub fn process_frame(&mut self, frame: CameraFrame) {
+        if frame.pixeltype.is_mono() {
+            self.process_mono(frame)
         }
     }
 }

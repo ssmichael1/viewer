@@ -1,5 +1,4 @@
-use camera::MonoCameraFrame;
-use camera::MonoPixel;
+use camera::CameraFrame;
 
 use std::sync::Arc;
 use std::sync::Condvar;
@@ -11,18 +10,12 @@ use std::thread;
 ///
 
 #[derive(Clone)]
-pub struct ImageQueue<T>
-where
-    T: MonoPixel + 'static,
-{
-    framelist: Arc<Mutex<Vec<MonoCameraFrame<T>>>>,
+pub struct ImageQueue {
+    framelist: Arc<Mutex<Vec<CameraFrame>>>,
     framelistsync: Arc<(Mutex<()>, Condvar)>,
 }
 
-impl<T> ImageQueue<T>
-where
-    T: MonoPixel + 'static,
-{
+impl ImageQueue {
     pub fn new() -> Self {
         ImageQueue {
             framelist: Arc::new(Mutex::new(Vec::new())),
@@ -31,17 +24,14 @@ where
     }
 
     /// Start the image processing chain when a frame is available
-    pub fn add_frame_to_queue(&self, frame: MonoCameraFrame<T>) {
+    pub fn add_frame_to_queue(&self, frame: CameraFrame) {
         let (lock, cvar) = &*self.framelistsync;
         let _guard = lock.lock().unwrap();
         self.framelist.lock().unwrap().push(frame);
         cvar.notify_one();
     }
 
-    pub fn start<F>(&self, procfunc: F)
-    where
-        F: Fn(MonoCameraFrame<T>) + Send + 'static,
-    {
+    pub fn start(&self, procfunc: impl Fn(CameraFrame) + Send + Sync + 'static) {
         let framelistsync = self.framelistsync.clone();
         let framelist = self.framelist.clone();
         let _thread = thread::spawn(move || {

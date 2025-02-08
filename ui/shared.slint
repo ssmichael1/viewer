@@ -1,11 +1,11 @@
-export global Shared {
-    pure callback linetosvg(points: [{x: float, y: float}], xrange: {min: float, max: float}, yrange: {min: float, max: float}, aspect: float) -> string;
-    in-out property <[{linecolor: color, fill: color, linewidth: length, points: [{ x: float, y: float}]
-}
+import {PlotRange, PlotData, MarkerType, PlotType, PlotPoint} from "plotting.slint";
 
-]> histdata: [];
-    in-out property <{min: float, max: float}> histxrange: { min: 0, max: 65536 };
-    in-out property <{min: float, max: float}> histyrange: { min: 0, max: 1 };
+export global Shared {
+    in-out property <PlotRange> histxrange: { min: 0, max: 10 };
+    in-out property <PlotRange> histyrange: { min: 0, max: 10 };
+    in-out property <[PlotData]> histdata: [];
+    in-out property <[float]> histxticks: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    in-out property <[float]> histyticks: [0, 2, 4, 6, 8, 10];
     in-out property <bool> autoscale: false;
     in-out property <bool> manualfc: false;
     in-out property <int> manualfc_min: 0;
@@ -13,7 +13,6 @@ export global Shared {
     in-out property <{min: int, max: int}> colorscale;
     in-out property <string> colormap: "Parula";
     in-out property <float> gamma: 1.0;
-    in-out property <float> histaspect;
     in-out property <{min: int, max: int}> fcrange: { min: 0, max: 65536 };
     // Region of interest for statistics, etc...
     in-out property <{x: int, y: int, width: int, height: int}> roi: { x: 0, y: 0, width: 0, height: 0 };

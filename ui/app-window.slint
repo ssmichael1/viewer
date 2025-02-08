@@ -1,6 +1,6 @@
-import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
+import {Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
 import {ToggleSwitch} from "toggleswitch.slint";
-import {PlotBox} from "plotter.slint";
+import {DragArea, PlotBox, PlotRange, PlotData, MarkerType} from "plotting.slint";
 import {Shared} from "shared.slint";
 import {GroupBox, GroupBoxCollapsible} from "groupbox.slint";
 
@@ -83,6 +83,7 @@ export component AppWindow inherits Window {
             GroupBoxCollapsible {
                 title: "Camera Controls";
                 padding: 8px;
+                collapsed: true;
 
                 GridLayout {
                     padding: 16px;
@@ -275,13 +276,30 @@ export component AppWindow inherits Window {
 
             GroupBoxCollapsible {
                 title: "Histogram";
-                PlotBox {
+                ph := PlotBox {
                     padding-top: 24px;
-
                     min-height: 64px;
                     preferred-height: 320px;
-                    x-label: "Pixel Value";
-                    y-label: "Counts";
+                    xlabel: "Pixel Value";
+                    ylabel: "Counts";
+                    xrange <=> Shared.histxrange;
+                    yrange <=> Shared.histyrange;
+                    plotdata <=> Shared.histdata;
+                    xticks <=> Shared.histxticks;
+                    yticks <=> Shared.histyticks;
+                    ytickpad: 5rem;
+                    if Shared.manualfc: dah := DragArea {
+                        x: ph.plot-x;
+                        y: ph.plot-y;
+                        width: ph.plot-width;
+                        height: ph.plot-height;
+                        fcmin <=> Shared.manualfc_min;
+                        fcmax <=> Shared.manualfc_max;
+                        range <=> Shared.histxrange;
+                        onchanged => {
+                            Shared.view_changed();
+                        }
+                    }
                 }
             }
         } // end of vertical box
