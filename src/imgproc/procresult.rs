@@ -16,6 +16,7 @@ pub struct ProcResult {
     pub fcrange: (i32, i32),
     pub mean: Option<f64>,
     pub var: Option<f64>,
+    pub framerate: f64,
 }
 
 impl Default for ProcResult {
@@ -26,6 +27,7 @@ impl Default for ProcResult {
             fcrange: (0, 4096),
             mean: None,
             var: None,
+            framerate: 0.0,
         }
     }
 }

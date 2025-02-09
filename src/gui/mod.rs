@@ -122,6 +122,12 @@ impl Gui {
                 global.set_histyrange(histyrange);
                 global.set_histdata(histdata);
 
+                // Set the frame rate
+                global.set_framerate(slint::SharedString::from(format!(
+                    "{:.2} fps",
+                    result.framerate
+                )));
+
                 // Create the image
                 ui.set_camframe_height(result.rawframe.height as i32);
                 ui.set_camframe_width(result.rawframe.width as i32);
@@ -210,37 +216,6 @@ impl Gui {
         Self::update_colorbar(&ui.as_weak().unwrap());
         params.write().unwrap().colorscale =
             ui.global::<Shared>().get_colormap().as_str().to_string();
-
-        ui.global::<Shared>()
-            .on_triangle_string(|a: f32| -> slint::SharedString {
-                let v1 = [0.0, -75.0];
-                let v2 = [-75.0, 75.0];
-                let v3 = [75.0, 75.0];
-
-                let angle = (90.0 + a * 90.0).to_radians();
-                let v1 = [
-                    v1[0] * angle.cos() - v1[1] * angle.sin(),
-                    v1[0] * angle.sin() + v1[1] * angle.cos(),
-                ];
-                let v2 = [
-                    v2[0] * angle.cos() - v2[1] * angle.sin(),
-                    v2[0] * angle.sin() + v2[1] * angle.cos(),
-                ];
-                let v3 = [
-                    v3[0] * angle.cos() - v3[1] * angle.sin(),
-                    v3[0] * angle.sin() + v3[1] * angle.cos(),
-                ];
-                let v1 = [v1[0] + 75.0, v1[1] + 75.0];
-                let v2 = [v2[0] + 75.0, v2[1] + 75.0];
-                let v3 = [v3[0] + 75.0, v3[1] + 75.0];
-                slint::SharedString::from(
-                    format!(
-                        "M {} {} L {} {} L {} {} L {} {} Z",
-                        v1[0], v1[1], v2[0], v2[1], v3[0], v3[1], v1[0], v1[1]
-                    )
-                    .as_str(),
-                )
-            });
 
         ui.global::<Shared>().on_mouseover_string(
             |x: i32, y: i32, val: i32| -> slint::SharedString {

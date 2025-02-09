@@ -6,6 +6,7 @@ export global Shared {
     in-out property <[PlotData]> histdata: [];
     in-out property <[float]> histxticks: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     in-out property <[float]> histyticks: [0, 2, 4, 6, 8, 10];
+    in-out property <string> framerate: "";
     in-out property <bool> autoscale: false;
     in-out property <bool> manualfc: false;
     in-out property <int> manualfc_min: 0;
@@ -20,5 +21,4 @@ export global Shared {
 
     callback view_changed();
     pure callback mouseover_string(int, int, int) -> string;
-    pure callback triangle_string(float) -> string;
 }

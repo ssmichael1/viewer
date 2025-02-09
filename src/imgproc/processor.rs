@@ -4,6 +4,7 @@ use camera::CameraFrame;
 use camera::PixelType;
 use rgb::bytemuck;
 
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 
 use crate::gui::GuiParams;
@@ -14,6 +15,7 @@ pub struct ImageProcessor {
     params: Option<Arc<RwLock<GuiParams>>>,
     sink: Option<Box<ResultCallback>>,
     lastresult: Option<ProcResult>,
+    frametimes: Arc<Mutex<VecDeque<chrono::DateTime<chrono::Utc>>>>,
 }
 
 impl ImageProcessor {
@@ -22,6 +24,7 @@ impl ImageProcessor {
             params: None,
             sink: None,
             lastresult: None,
+            frametimes: Arc::new(Mutex::new(VecDeque::new())),
         }))
     }
 
@@ -79,7 +82,7 @@ impl ImageProcessor {
         (min.to_i32().unwrap(), max.to_i32().unwrap(), bins, hist)
     }
 
-    fn process_mono(&mut self, frame: CameraFrame) {
+    fn process_mono(&mut self, frame: CameraFrame) -> ProcResult {
         let (minval, maxval, bins, hist) = match frame.pixeltype {
             PixelType::Gray8 => Self::compute_histogram(&frame.data),
             PixelType::Gray16 => {
@@ -96,20 +99,13 @@ impl ImageProcessor {
         };
 
         // Create the result
-        let res = ProcResult {
+        ProcResult {
             rawframe: frame,
             histogram: (bins, hist),
             fcrange: (minval, maxval),
             mean: Some(mean),
             var: Some(var),
-        };
-
-        // Store the result
-        self.lastresult = Some(res);
-
-        // Process the result
-        if let Some(sink) = &self.sink {
-            sink(self.lastresult.as_ref().unwrap());
+            framerate: 0.0,
         }
     }
 
@@ -119,8 +115,36 @@ impl ImageProcessor {
     /// Then run the "sink" function on that result when complete
     ///
     pub fn process_frame(&mut self, frame: CameraFrame) {
-        if frame.pixeltype.is_mono() {
-            self.process_mono(frame)
+        let framerate: f64 = {
+            let mut frametimes = self.frametimes.lock().unwrap();
+            frametimes.push_back(frame.center_of_integration);
+            if frametimes.len() < 2 {
+                0.0
+            } else {
+                let first = frametimes.front().unwrap();
+                let last = frametimes.back().unwrap();
+                let duration = last.signed_duration_since(first);
+                let duration = duration.num_milliseconds() as f64;
+                let nframes = frametimes.len() as f64;
+                if frametimes.len() > 30 {
+                    frametimes.pop_front();
+                }
+                1000.0 * (nframes - 1.0) / duration
+            }
+        };
+
+        let mut res = match frame.pixeltype.is_mono() {
+            true => self.process_mono(frame),
+            false => ProcResult::default(),
+        };
+        res.framerate = framerate;
+
+        // Store the result
+        self.lastresult = Some(res);
+
+        // Process the result
+        if let Some(sink) = &self.sink {
+            sink(self.lastresult.as_ref().unwrap());
         }
     }
 }
