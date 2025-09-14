@@ -12,21 +12,21 @@ path = "src/main.rs"
 
 [dependencies]
 camera = { path = "../camera" }
-thiserror = "2.0.11"
+numeris = { path = "../numeris" }
+svbony = { path = "../svbony" }
+thiserror = "2"
 num-traits = "0.2.18"
-chrono = "0.4.39"
-png = "0.17.16"
-slint = "1.9.2"
-tiny-skia = "0.11.4"
-fast_image_resize = "5.1.1"
+chrono = "0.4.42"
+png = "0.18.0"
+slint = "1.13.1"
+fast_image_resize = "5.3.0"
 rgb = "0.8.5"
 
 [dev-dependencies]
-chrono = "0.4.39" # used for testing
-approx = "0.5.0"  # used for testing
+approx = "0.5.0" # used for testing
 
 [build-dependencies]
-slint-build = "1.9.2"
+slint-build = "1.13.1"
 
 [features]
 svbony = []

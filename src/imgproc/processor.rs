@@ -1,8 +1,8 @@
 use super::procresult::ProcResult;
 
 use camera::CameraFrame;
-use camera::PixelType;
-use rgb::bytemuck;
+use camera::FrameType;
+use numeris::image::Image;
 
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
@@ -51,16 +51,19 @@ impl ImageProcessor {
         (mean, var)
     }
 
-    fn compute_histogram<T>(pixels: &[T]) -> (i32, i32, Vec<i32>, Vec<i32>)
+    fn compute_histogram<T>(img: &Image<T>) -> (i32, i32, Vec<i32>, Vec<i32>)
     where
-        T: num_traits::PrimInt,
+        T: num_traits::PrimInt + numeris::image::PixelType,
     {
-        let mut min = T::max_value();
-        let mut max = T::min_value();
-
-        pixels.iter().for_each(|&x| {
-            min = min.min(x);
-            max = max.max(x);
+        let mut min = img[(0, 0)];
+        let mut max = min;
+        img.data().iter().for_each(|&x| {
+            if x < min {
+                min = x;
+            }
+            if x > max {
+                max = x;
+            }
         });
 
         let histmin = f64::powf(2.0, f64::log2(min.to_f64().unwrap()).floor());
@@ -74,7 +77,7 @@ impl ImageProcessor {
             .map(|i| histmin + i * histdelta)
             .collect::<Vec<i32>>();
         let mut hist = vec![0; (nbins + 1) as usize];
-        pixels.iter().for_each(|&x| {
+        img.data().iter().for_each(|&x| {
             let bin = ((x.to_i32().unwrap() - histmin) / histdelta) as usize;
             hist[bin] += 1;
         });
@@ -82,39 +85,12 @@ impl ImageProcessor {
         (min.to_i32().unwrap(), max.to_i32().unwrap(), bins, hist)
     }
 
-    fn process_mono(&mut self, frame: CameraFrame) -> ProcResult {
-        let (minval, maxval, bins, hist) = match frame.pixeltype {
-            PixelType::Gray8 => Self::compute_histogram(&frame.data),
-            PixelType::Gray16 => {
-                Self::compute_histogram(bytemuck::cast_slice::<u8, u16>(&frame.data))
-            }
-            _ => (0, 4096, vec![], vec![]),
-        };
-        let (mean, var) = match frame.pixeltype {
-            PixelType::Gray8 => Self::compute_mean_and_var(&frame.data),
-            PixelType::Gray16 => {
-                Self::compute_mean_and_var(bytemuck::cast_slice::<u8, u16>(&frame.data))
-            }
-            _ => (0.0, 0.0),
-        };
-
-        // Create the result
-        ProcResult {
-            rawframe: frame,
-            histogram: (bins, hist),
-            fcrange: (minval, maxval),
-            mean: Some(mean),
-            var: Some(var),
-            framerate: 0.0,
-        }
-    }
-
     ///
     /// Process a raw frame to produce a result.
     ///
     /// Then run the "sink" function on that result when complete
     ///
-    pub fn process_frame(&mut self, frame: CameraFrame) {
+    pub fn process_frame(&mut self, frame: &CameraFrame) {
         let framerate: f64 = {
             let mut frametimes = self.frametimes.lock().unwrap();
             frametimes.push_back(frame.center_of_integration);
@@ -133,11 +109,34 @@ impl ImageProcessor {
             }
         };
 
-        let mut res = match frame.pixeltype.is_mono() {
-            true => self.process_mono(frame),
-            false => ProcResult::default(),
+        let (min, max, bins, hist) = match &frame.frame {
+            FrameType::U8(f) => Self::compute_histogram(f),
+            FrameType::U16(f) => Self::compute_histogram(f),
+            FrameType::U32(f) => Self::compute_histogram(f),
+            FrameType::I8(f) => Self::compute_histogram(f),
+            FrameType::I16(f) => Self::compute_histogram(f),
+            FrameType::I32(f) => Self::compute_histogram(f),
+            FrameType::F32(_) => (0, 0, vec![], vec![]), // TODO: implement histogram for float images
+            _ => (0, 4096, vec![], vec![]),
         };
-        res.framerate = framerate;
+        let (mean, var) = match &frame.frame {
+            FrameType::U8(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::U16(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::U32(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::I8(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::I16(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::I32(f) => Self::compute_mean_and_var(f.data()),
+            FrameType::F32(_) => (0.0, 0.0), // TODO: implement mean/var for float images
+            _ => (0.0, 0.0),
+        };
+        let res = ProcResult {
+            rawframe: frame.clone(),
+            histogram: (bins, hist),
+            fcrange: (min, max),
+            mean: Some(mean),
+            var: Some(var),
+            framerate,
+        };
 
         // Store the result
         self.lastresult = Some(res);

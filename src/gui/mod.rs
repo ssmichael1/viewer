@@ -8,6 +8,8 @@ use slint::SharedPixelBuffer;
 
 slint::include_modules!();
 
+use camera::FrameType;
+
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::{Arc, RwLock};
@@ -129,8 +131,8 @@ impl Gui {
                 )));
 
                 // Create the image
-                ui.set_camframe_height(result.rawframe.height as i32);
-                ui.set_camframe_width(result.rawframe.width as i32);
+                ui.set_camframe_height(result.rawframe.frame.height() as i32);
+                ui.set_camframe_width(result.rawframe.frame.width() as i32);
 
                 {
                     let p = params.read().unwrap();
@@ -150,17 +152,20 @@ impl Gui {
                     }
                 }
 
-                let xpix = ui.get_xpix() as usize;
-                let ypix = ui.get_ypix() as usize;
-                match result.rawframe.pixeltype {
-                    camera::PixelType::Gray8 => {
-                        ui.set_valatpix(result.rawframe.at::<u8>(xpix, ypix).unwrap_or(0) as i32);
-                    }
-                    camera::PixelType::Gray16 => {
-                        ui.set_valatpix(result.rawframe.at::<u16>(xpix, ypix).unwrap_or(0) as i32);
-                    }
-                    _ => {}
-                };
+                // Get the pixel value at the current mouse position
+                let mut xpix = ui.get_xpix() as usize;
+                let mut ypix = ui.get_ypix() as usize;
+                xpix = xpix.clamp(0, result.rawframe.frame.width().saturating_sub(1));
+                ypix = ypix.clamp(0, result.rawframe.frame.height().saturating_sub(1));
+                ui.set_valatpix(match result.rawframe.frame {
+                    FrameType::U8(ref f) => *f.at(xpix, ypix).unwrap_or(&0) as i32,
+                    FrameType::U16(ref f) => *f.at(xpix, ypix).unwrap_or(&0) as i32,
+                    FrameType::U32(ref f) => *f.at(xpix, ypix).unwrap_or(&0) as i32,
+                    FrameType::I8(ref f) => *f.at(xpix, ypix).unwrap_or(&0) as i32,
+                    FrameType::I16(ref f) => *f.at(xpix, ypix).unwrap_or(&0) as i32,
+                    FrameType::I32(ref f) => *f.at(xpix, ypix).unwrap_or(&0),
+                    _ => 0,
+                });
 
                 ui.set_meantext(slint::SharedString::from(format!(
                     "{:.2}",
@@ -382,19 +387,22 @@ impl Gui {
                 let range = (maxscale - minscale).max(1);
 
                 if (unresized.width(), unresized.height())
-                    != (rawframe.width as u32, rawframe.height as u32)
+                    != (
+                        rawframe.frame.width() as u32,
+                        rawframe.frame.height() as u32,
+                    )
                 {
                     unresized = fast_image_resize::images::Image::new(
-                        rawframe.width as u32,
-                        rawframe.height as u32,
+                        rawframe.frame.width() as u32,
+                        rawframe.frame.height() as u32,
                         fast_image_resize::PixelType::U8x4,
                     );
                 }
 
                 let cbuf = unresized.buffer_mut();
-                match rawframe.pixeltype {
-                    camera::PixelType::Gray8 => {
-                        rawframe.data.iter().enumerate().for_each(|(i, x)| {
+                match rawframe.frame {
+                    FrameType::U8(ref f) => {
+                        f.data().iter().enumerate().for_each(|(i, x)| {
                             let idx = match (gamma - 1.0).abs() < 0.02 {
                                 true => ((*x as i64 - minscale as i64) * maxcolor / range as i64)
                                     .clamp(0, 255) as usize,
@@ -410,28 +418,20 @@ impl Gui {
                             cbuf[i * 4 + 3] = cmap[idx].a;
                         });
                     }
-                    camera::PixelType::Gray16 => {
-                        rgb::bytemuck::cast_slice::<u8, u16>(&rawframe.data)
-                            .iter()
-                            .enumerate()
-                            .for_each(|(i, x)| {
-                                let idx = match (gamma - 1.0).abs() < 0.02 {
-                                    true => ((*x as i64 - minscale as i64) * maxcolor
-                                        / range as i64)
-                                        .clamp(0, 255)
-                                        as usize,
-                                    false => (((*x as f32 - minscale as f32) / range as f32)
-                                        .powf(1.0 / gamma as f32)
-                                        * maxcolor as f32)
-                                        .clamp(0.0, 255.0)
-                                        as usize,
-                                };
-                                cbuf[i * 4] = cmap[idx].r;
-                                cbuf[i * 4 + 1] = cmap[idx].g;
-                                cbuf[i * 4 + 2] = cmap[idx].b;
-                                cbuf[i * 4 + 3] = cmap[idx].a;
-                            })
-                    }
+                    FrameType::U16(ref f) => f.data().iter().enumerate().for_each(|(i, x)| {
+                        let idx = match (gamma - 1.0).abs() < 0.02 {
+                            true => ((*x as i64 - minscale as i64) * maxcolor / range as i64)
+                                .clamp(0, 255) as usize,
+                            false => (((*x as f32 - minscale as f32) / range as f32)
+                                .powf(1.0 / gamma as f32)
+                                * maxcolor as f32)
+                                .clamp(0.0, 255.0) as usize,
+                        };
+                        cbuf[i * 4] = cmap[idx].r;
+                        cbuf[i * 4 + 1] = cmap[idx].g;
+                        cbuf[i * 4 + 2] = cmap[idx].b;
+                        cbuf[i * 4 + 3] = cmap[idx].a;
+                    }),
 
                     _ => {}
                 };

@@ -21,10 +21,10 @@ pub struct ProcResult {
 
 impl Default for ProcResult {
     fn default() -> Self {
-        ProcResult {
+        Self {
             rawframe: CameraFrame::default(),
-            histogram: (vec![], vec![]),
-            fcrange: (0, 4096),
+            histogram: (Vec::new(), Vec::new()),
+            fcrange: (0, 0),
             mean: None,
             var: None,
             framerate: 0.0,

@@ -4,11 +4,19 @@
 mod gui;
 mod imgproc;
 
+use camera::Camera;
 use camera::CameraError;
 use camera::CameraFrame;
 
 use imgproc::ImageQueue;
 use std::error::Error;
+
+fn get_available_cameras() -> Vec<impl Camera> {
+    let cameras = vec![std::sync::Arc::new(std::sync::RwLock::new(
+        camera::SimCamera::new(640, 480, 8),
+    ))];
+    cameras
+}
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Create a GUI
@@ -27,24 +35,27 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Process images whenever a frame arrives
     let pclone = imgproc.clone();
     // Start the image queue (creates a thread)
-    imgqueue.start(move |frame: CameraFrame| pclone.lock().unwrap().process_frame(frame));
+    imgqueue.start(move |frame: std::sync::Arc<CameraFrame>| {
+        pclone.lock().unwrap().process_frame(&frame)
+    });
 
-    let cameras = camera::get_available_cameras();
+    let mut cameras = get_available_cameras();
     if cameras.is_empty() {
         eprintln!("No cameras found");
         return Ok(());
     }
     println!("Found {} cameras", cameras.len());
-    cameras.iter().for_each(|c| println!("{}", c.name));
+    cameras.iter().for_each(|c| println!("{}", c.name()));
 
-    println!("Found camera {}", cameras.first().unwrap().name);
-    let mut cam0 = (cameras.last().unwrap().get_camera)();
-    //cam0.connect()?;
+    println!("Found camera {}", cameras.first().unwrap().name());
+    let cam0 = cameras.last_mut().unwrap();
 
-    let _ = cam0.set_frame_callback(Box::new(move |frame| -> Result<(), CameraError> {
-        imgqueue.add_frame_to_queue(frame);
-        Ok(())
-    }));
+    let _ = cam0.set_frame_callback(Box::new(
+        move |frame: &CameraFrame| -> Result<(), CameraError> {
+            imgqueue.add_frame_to_queue(std::sync::Arc::new(frame.clone()));
+            Ok(())
+        },
+    ));
     cam0.start()?;
 
     thegui.run()?;
