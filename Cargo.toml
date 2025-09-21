@@ -13,7 +13,6 @@ path = "src/main.rs"
 [dependencies]
 camera = { path = "../camera" }
 numeris = { path = "../numeris" }
-svbony = { path = "../svbony" }
 thiserror = "2"
 num-traits = "0.2.18"
 chrono = "0.4.42"
@@ -27,9 +26,6 @@ approx = "0.5.0" # used for testing
 
 [build-dependencies]
 slint-build = "1.13.1"
-
-[features]
-svbony = []
 
 
 [profile.test]

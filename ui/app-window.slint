@@ -14,7 +14,6 @@ component LabelText inherits Text {
     vertical-alignment: center;
     font-weight: 400;
     color: enabled == true ? Palette.foreground : Palette.alternate-foreground;
-    padding-right: 16px;
     width: 120px;
     max-height: 20px;
 }
@@ -22,7 +21,6 @@ component LabelText inherits Text {
 component ValueText {
 
     in-out property <string> text;
-    padding: 8px;
     text <=> th.text;
 
     max-width: 100px;
@@ -82,7 +80,6 @@ export component AppWindow inherits Window {
             padding: 0px;
             GroupBoxCollapsible {
                 title: "Camera Controls";
-                padding: 8px;
                 collapsed: true;
 
                 GridLayout {
@@ -110,7 +107,6 @@ export component AppWindow inherits Window {
 
             GroupBoxCollapsible {
                 title: "Display Settings";
-                padding: 8px;
                 width: 480px;
 
                 GridLayout {
@@ -223,7 +219,6 @@ export component AppWindow inherits Window {
 
             GroupBoxCollapsible {
                 title: "Frame Statistics";
-                padding: 8px;
 
                 GridLayout {
                     padding: 16px;
@@ -277,7 +272,6 @@ export component AppWindow inherits Window {
             GroupBoxCollapsible {
                 title: "Histogram";
                 ph := PlotBox {
-                    padding-top: 24px;
                     min-height: 64px;
                     preferred-height: 320px;
                     xlabel: "Pixel Value";
@@ -306,7 +300,6 @@ export component AppWindow inherits Window {
 
         framebox_handle := GroupBox {
             title: "Camera Frame";
-            padding: 24px;
             property <length> colorbar_width: 5rem + 20px;
             property <length> yaxis_width: 8rem;
             property <length> xaxis_height: 40px;
@@ -420,7 +413,7 @@ export component AppWindow inherits Window {
                     x: image_display_xoffset;
                     y: image_display_yoffset + image_display_height - 8px;
 
-                        // Draw x axis tick marks
+                    // Draw x axis tick marks
                         for i in 9: Path {
                         width: 2px;
                         height: 16px;
@@ -459,7 +452,7 @@ export component AppWindow inherits Window {
                     x: 0;
                     y: image_display_yoffset;
 
-                        // Draw y axis tick marks
+                    // Draw y axis tick marks
                     for i in 9: Path {
                         width: 12px;
                         height: 2px;

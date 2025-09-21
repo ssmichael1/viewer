@@ -4,19 +4,10 @@
 mod gui;
 mod imgproc;
 
-use camera::Camera;
-use camera::CameraError;
-use camera::CameraFrame;
+use camera::prelude::*;
 
 use imgproc::ImageQueue;
 use std::error::Error;
-
-fn get_available_cameras() -> Vec<impl Camera> {
-    let cameras = vec![std::sync::Arc::new(std::sync::RwLock::new(
-        camera::SimCamera::new(640, 480, 8),
-    ))];
-    cameras
-}
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Create a GUI
@@ -39,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         pclone.lock().unwrap().process_frame(&frame)
     });
 
-    let mut cameras = get_available_cameras();
+    let mut cameras = get_connected_cameras();
     if cameras.is_empty() {
         eprintln!("No cameras found");
         return Ok(());
@@ -50,18 +41,18 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("Found camera {}", cameras.first().unwrap().name());
     let cam0 = cameras.last_mut().unwrap();
 
-    let _ = cam0.set_frame_callback(Box::new(
-        move |frame: &CameraFrame| -> Result<(), CameraError> {
-            imgqueue.add_frame_to_queue(std::sync::Arc::new(frame.clone()));
-            Ok(())
-        },
-    ));
+    let _ = cam0.set_frame_callback(move |frame: &CameraFrame| -> Result<(), CameraError> {
+        imgqueue.add_frame_to_queue(std::sync::Arc::new(frame.clone()));
+        Ok(())
+    });
     cam0.start()?;
 
     thegui.run()?;
 
     cam0.stop()?;
+    println!("stopped camera");
     cam0.disconnect()?;
+    println!("disconnected camera");
 
     Ok(())
 }

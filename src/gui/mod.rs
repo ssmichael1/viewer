@@ -85,18 +85,36 @@ impl Gui {
                 let global = ui.global::<Shared>();
 
                 let histdata = slint::VecModel::from_slice(&[PlotData {
-                    points: slint::VecModel::from_slice(
-                        &result
-                            .histogram
-                            .0
-                            .iter()
-                            .zip(result.histogram.1.iter())
-                            .map(|(x, y)| PlotPoint {
-                                x: *x as f32,
-                                y: *y as f32,
-                            })
-                            .collect::<Vec<PlotPoint>>(),
-                    ),
+                    points: {
+                        let s = slint::VecModel::default();
+                        s.push(PlotPoint {
+                            x: histxrange.min,
+                            y: 0.0,
+                        });
+                        s.push(PlotPoint {
+                            x: histxrange.max,
+                            y: 0.0,
+                        });
+                        s.extend_from_slice(
+                            &result
+                                .histogram
+                                .0
+                                .iter()
+                                .zip(result.histogram.1.iter())
+                                .rev()
+                                .map(|(x, y)| PlotPoint {
+                                    x: *x as f32,
+                                    y: *y as f32,
+                                })
+                                .collect::<Vec<PlotPoint>>(),
+                        );
+
+                        s.push(PlotPoint {
+                            x: histxrange.min,
+                            y: 0.0,
+                        });
+                        slint::ModelRc::new(s)
+                    },
                     r#type: PlotType::Fill,
                     color: slint::Color::from_argb_u8(255, 255, 0, 0).darker(0.5),
                     fillcolor: slint::Color::from_argb_u8(255, 255, 0, 0).darker(1.4),
@@ -382,7 +400,10 @@ impl Gui {
                         params.read().unwrap().scale_range.0 as u16,
                         params.read().unwrap().scale_range.1 as u16,
                     ),
-                    FCScaleType::Max => (0, (1_u32 << rawframe.bit_depth.unwrap() as u32) as u16),
+                    FCScaleType::Max => (
+                        0,
+                        ((1_u32 << rawframe.bit_depth.unwrap_or(12) as u32) - 1) as u16,
+                    ),
                 };
                 let range = (maxscale - minscale).max(1);
 

@@ -53,7 +53,7 @@ impl ImageProcessor {
 
     fn compute_histogram<T>(img: &Image<T>) -> (i32, i32, Vec<i32>, Vec<i32>)
     where
-        T: num_traits::PrimInt + numeris::image::PixelType,
+        T: num_traits::PrimInt + numeris::image::PixelType + std::fmt::Display,
     {
         let mut min = img[(0, 0)];
         let mut max = min;
@@ -73,6 +73,11 @@ impl ImageProcessor {
         let histdelta = ((histmax - histmin) / nbins as f64).ceil() as i32;
 
         let histmin = histmin as i32;
+
+        println!(
+            "min={} max={} histmin={} histmax={} histdelta={}",
+            min, max, histmin, histmax, histdelta
+        );
         let bins = (0..(nbins + 1))
             .map(|i| histmin + i * histdelta)
             .collect::<Vec<i32>>();
@@ -81,6 +86,8 @@ impl ImageProcessor {
             let bin = ((x.to_i32().unwrap() - histmin) / histdelta) as usize;
             hist[bin] += 1;
         });
+
+        println!("histogram = {:?}", hist);
 
         (min.to_i32().unwrap(), max.to_i32().unwrap(), bins, hist)
     }
