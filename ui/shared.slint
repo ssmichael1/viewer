@@ -1,4 +1,11 @@
 import {PlotRange, PlotData, MarkerType, PlotType, PlotPoint} from "plotting.slint";
+import {SVBonyCapDisp} from "svbony.slint";
+
+export enum CameraType {
+    None,
+    SVBony,
+    Sim,
+}
 
 export global Shared {
     in-out property <PlotRange> histxrange: { min: 0, max: 10 };
@@ -12,9 +19,16 @@ export global Shared {
     in-out property <int> manualfc_min: 0;
     in-out property <int> manualfc_max: 65536;
     in-out property <{min: int, max: int}> colorscale;
-    in-out property <string> colormap: "Parula";
+    in-out property <string> colormap: "Grayscale";
     in-out property <float> gamma: 1.0;
     in-out property <{min: int, max: int}> fcrange: { min: 0, max: 65536 };
+    in property <CameraType> camera_type: SVBony;
+    in property <string> camera_serial: "";
+    in property <string> camera_name: "";
+    in property <[string]> camera_list: [];
+    in property <[SVBonyCapDisp]> svbony_capabilities: [];
+    callback svbony_cap_changed(string, int);
+
     // Region of interest for statistics, etc...
     in-out property <{x: int, y: int, width: int, height: int}> roi: { x: 0, y: 0, width: 0, height: 0 };
     pure callback displayimage(length, length) -> image;

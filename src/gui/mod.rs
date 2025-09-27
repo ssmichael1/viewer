@@ -1,3 +1,4 @@
+use crate::imgproc::ImageProcessor;
 use crate::imgproc::ProcResult;
 use std::error::Error;
 
@@ -8,11 +9,13 @@ use slint::SharedPixelBuffer;
 
 slint::include_modules!();
 
-use camera::FrameType;
+use camera::prelude::*;
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
+
+use anyhow::Result;
 
 #[derive(Clone, Debug, Copy)]
 pub enum FCScaleType {
@@ -35,7 +38,7 @@ impl Default for GuiParams {
             gamma: 1.0,
             fcscaletype: FCScaleType::Max,
             scale_range: (0, 65535),
-            colorscale: "parula".to_string(),
+            colorscale: "grayscale".to_string(),
         }
     }
 }
@@ -44,7 +47,9 @@ impl Default for GuiParams {
 pub struct Gui {
     pub ui: Rc<RefCell<AppWindow>>,
     pub params: Arc<RwLock<GuiParams>>,
-    pub proc: Arc<RwLock<ProcResult>>,
+    pub procresult: Arc<RwLock<ProcResult>>,
+    pub camera: Option<Camera>,
+    pub proc: Arc<Mutex<ImageProcessor>>,
 }
 
 impl Gui {
@@ -52,9 +57,114 @@ impl Gui {
         self.params.clone()
     }
 
+    pub fn set_camera_list(&self, list: Vec<String>) {
+        self.ui
+            .borrow()
+            .global::<Shared>()
+            .set_camera_list(slint::VecModel::from_slice(
+                &list
+                    .iter()
+                    .map(|s| slint::SharedString::from(s.as_str()))
+                    .collect::<Vec<_>>(),
+            ));
+    }
+
+    pub fn set_camera(&mut self, mut cam: Camera) {
+        self.camera = Some(cam.clone());
+
+        let binding = self.ui.borrow();
+        let globals = binding.global::<Shared>();
+        match &cam {
+            Camera::SVBony(c) => {
+                globals.set_camera_type(CameraType::SVBony);
+                let c = c.read().unwrap();
+                c.capabilities.iter().for_each(|cap| {
+                    println!("  Capability: {}", cap);
+                    let val = c
+                        .get_control_value(cap.control_type)
+                        .map_err(|e| {
+                            println!("Failed to get control value for {}: {}", cap.name, e);
+                            e
+                        })
+                        .unwrap_or(30);
+                    println!("    Value: {}", val);
+                });
+                globals.set_svbony_capabilities(slint::VecModel::from_slice(
+                    &c.capabilities
+                        .iter()
+                        .map(|cap| {
+                            let mut maxval = cap.max_value;
+                            if cap.control_type
+                                == camera::svbony::lowlevel::SVBControlType::SVBExposure
+                            {
+                                maxval = 100000; // Limit to 100 milliseconds
+                            }
+                            SVBonyCapDisp {
+                                name: slint::SharedString::from(cap.name.as_str()),
+                                description: slint::SharedString::from(cap.description.as_str()),
+                                minval: cap.min_value,
+                                maxval,
+                                default: cap.default_value,
+                                auto: cap.is_auto_supported,
+                                writeable: cap.is_writeable,
+                                value: c.get_control_value(cap.control_type).unwrap_or(30),
+                            }
+                        })
+                        .collect::<Vec<SVBonyCapDisp>>(),
+                ));
+            }
+            Camera::Sim(_c) => {
+                //let c = c.read().unwrap();
+                globals.set_camera_type(CameraType::Sim);
+            }
+        }
+
+        self.proc.lock().unwrap().set_params(self.get_params());
+        self.proc.lock().unwrap().set_sink(self.on_processed());
+        self.camera = Some(cam.clone());
+        let gui = self.clone();
+
+        gui.ui.borrow().global::<Shared>().on_svbony_cap_changed({
+            let cam = gui.camera.clone();
+            println!("cam = {:?}", cam.is_some());
+            move |name: slint::SharedString, value: i32| {
+                println!("Capability change: {} -> {}", name, value);
+                if let Some(Camera::SVBony(c)) = &cam {
+                    println!("found the camera");
+                    let c = c.write().unwrap();
+                    if let Some(cap) = c.capabilities.iter().find(|cap| cap.name == name.as_str()) {
+                        println!("Found capability: {} -> {}", cap.name, value);
+                        if cap.is_writeable {
+                            let _ =
+                                c.set_control_value(cap.control_type, value, false)
+                                    .map_err(|e| {
+                                        println!(
+                                            "Failed to set control value {:?} to {} : {}",
+                                            cap.control_type, value, e
+                                        );
+                                        e
+                                    });
+                        }
+                    }
+                }
+            }
+        });
+
+        let _ = cam.set_frame_callback(move |frame: &CameraFrame| -> Result<(), CameraError> {
+            gui.proc
+                .lock()
+                .unwrap()
+                .process_frame(&std::sync::Arc::new(frame.clone()));
+            Ok(())
+        });
+
+        cam.connect().unwrap();
+        cam.start().unwrap();
+    }
+
     pub fn on_processed(&self) -> Box<dyn Fn(&ProcResult) + Send + 'static> {
         let ui_handle: slint::Weak<AppWindow> = self.ui.borrow().as_weak();
-        let proc = self.proc.clone();
+        let proc = self.procresult.clone();
         let params = self.params.clone();
 
         Box::new(move |result: &ProcResult| {
@@ -369,9 +479,9 @@ impl Gui {
             }
         });
 
-        let proc = Arc::new(RwLock::new(ProcResult::default()));
+        let procresult = Arc::new(RwLock::new(ProcResult::default()));
         ui.global::<Shared>().on_displayimage({
-            let proc = proc.clone();
+            let proc = procresult.clone();
             let params = params.clone();
 
             let mut resizer = fast_image_resize::Resizer::new();
@@ -471,8 +581,8 @@ impl Gui {
                 let cmap_image = Image::from_rgba8_premultiplied(
                     SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
                         resized.buffer(),
-                        width as u32,
-                        height as u32,
+                        resized.width(),
+                        resized.height(),
                     ),
                 );
                 cmap_image
@@ -480,9 +590,11 @@ impl Gui {
         });
 
         let gui = Self {
-            ui: Rc::new(RefCell::new(ui)),
+            ui: Rc::new(RefCell::new(ui.clone_strong())),
             params,
-            proc,
+            procresult,
+            camera: None,
+            proc: ImageProcessor::new(),
         };
 
         Ok(gui)
@@ -490,6 +602,14 @@ impl Gui {
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.ui.borrow_mut().run()?;
+        if let Some(cam) = &mut self.camera {
+            println!("stopping camera");
+            cam.stop()?;
+            println!("disconnecting camera");
+            // sleep for 10 milliseconds
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            cam.disconnect()?;
+        }
         Ok(())
     }
 }

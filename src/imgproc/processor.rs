@@ -74,10 +74,6 @@ impl ImageProcessor {
 
         let histmin = histmin as i32;
 
-        println!(
-            "min={} max={} histmin={} histmax={} histdelta={}",
-            min, max, histmin, histmax, histdelta
-        );
         let bins = (0..(nbins + 1))
             .map(|i| histmin + i * histdelta)
             .collect::<Vec<i32>>();
@@ -86,8 +82,6 @@ impl ImageProcessor {
             let bin = ((x.to_i32().unwrap() - histmin) / histdelta) as usize;
             hist[bin] += 1;
         });
-
-        println!("histogram = {:?}", hist);
 
         (min.to_i32().unwrap(), max.to_i32().unwrap(), bins, hist)
     }
