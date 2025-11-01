@@ -455,6 +455,18 @@ impl Gui {
             },
         );
 
+        // Wire the Ctrl/Cmd+Q from .slint to actually exit
+        let weak = ui.as_weak();
+        ui.on_quit_requested(move || {
+            println!("Quit requested");
+            if let Some(ui) = weak.upgrade() {
+                // Hiding the last window makes `run()` return.
+                //let _ = ui.hide();
+                // (Alternative: slint::quit_event_loop().ok();)
+                slint::quit_event_loop().ok();
+            }
+        });
+
         ui.set_camframe_width(512);
         ui.set_camframe_height(512);
         ui.global::<Shared>().on_view_changed({
@@ -601,7 +613,14 @@ impl Gui {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.ui.borrow_mut().run()?;
+        println!("running the GUI");
+
+        match self.ui.borrow_mut().run() {
+            Ok(_) => println!("GUI exited normally"),
+            Err(e) => eprintln!("GUI exited with error: {}", e),
+        }
+
+        println!("GUI stopped");
         if let Some(cam) = &mut self.camera {
             println!("stopping camera");
             cam.stop()?;

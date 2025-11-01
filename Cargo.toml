@@ -13,20 +13,22 @@ path = "src/main.rs"
 [dependencies]
 camera = { path = "../camera" }
 numeris = { path = "../numeris" }
-thiserror = "2"
+thiserror = "2.0.17"
 num-traits = "0.2.18"
 chrono = "0.4.42"
 png = "0.18.0"
-slint = "1.13.1"
+slint = "1.14.1"
 fast_image_resize = "5.3.0"
 rgb = "0.8.5"
 anyhow = "1.0.100"
+tracing = "1.0"
+tracing-subscriber = "0.3"
 
 [dev-dependencies]
 approx = "0.5.0" # used for testing
 
 [build-dependencies]
-slint-build = "1.13.1"
+slint-build = "1.14.1"
 
 
 [profile.test]

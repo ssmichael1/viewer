@@ -35,31 +35,15 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         eprintln!("No cameras found");
         return Ok(());
     }
-    println!("Found {} cameras", cameras.len());
     cameras.iter().for_each(|c| println!("{}", c.name()));
 
     let list: Vec<String> = cameras.iter().map(|c| c.name().to_string()).collect();
     thegui.set_camera_list(list);
     thegui.set_camera(cameras.last().unwrap().clone());
 
-    println!("Found camera {}", cameras.first().unwrap().name());
-    //let cam0 = &mut cameras[0];
-
-    /*
-    let _ = cam0.set_frame_callback(move |frame: &CameraFrame| -> Result<(), CameraError> {
-        imgqueue.add_frame_to_queue(std::sync::Arc::new(frame.clone()));
-        Ok(())
-    });
-    cam0.start()?;
-
-    thegui.run()?;
-
-    cam0.stop()?;
-    println!("stopped camera");
-    cam0.disconnect()?;
-    println!("disconnected camera");
-    */
-    thegui.run()?;
+    thegui
+        .run()
+        .unwrap_or_else(|e| eprintln!("Error running GUI: {}", e));
 
     Ok(())
 }

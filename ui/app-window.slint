@@ -68,6 +68,27 @@ export component AppWindow inherits Window {
     in-out property <int> ypix: 0;
     in-out property <int> valatpix: 0;
 
+    // Called from .slint when user hits Ctrl/Cmd+Q
+        callback quit_requested();
+
+    // Route key events to our handler even if nothing else is focused
+        forward-focus: kb;
+
+    kb := FocusScope {
+        focus-on-click: true;
+
+        // Intercept key presses here
+            capture-key-pressed(e) => {
+            if ((e.modifiers.control || e.modifiers.meta)   // Ctrl on Win/Linux, Cmd on macOS
+                    && (e.text == "q" || e.text == "Q")) {
+                root.quit_requested();
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
     HorizontalBox {
         y: 24px;
         spacing: 12px;
