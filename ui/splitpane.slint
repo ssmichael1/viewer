@@ -1,0 +1,55 @@
+
+
+export component VerticalSplitPane inherits Rectangle {
+    in-out property <float> ratio: 0.5;        // 0.0..1.0
+    in property <length> handle-height: 4px;
+    in property <length> min-top: 60px;
+    in property <length> min-bottom: 60px;
+
+    property <length> available: max(0px, self.height - handle-height);
+    out property <length> top-h: clamp(ratio * available, min-top, available - min-bottom);
+    out property <length> bottom-h: available - top-h;
+    out property <length> bottom-y: top-h + handle-height;
+
+    // Exposed containers you can override in usage:
+    top-slot := Rectangle {
+        y: 0px;
+        width: parent.width;
+        height: top-h;
+        background: transparent;
+    }
+
+    handle := Rectangle {
+        y: top-slot.height;
+        width: parent.width;
+        height: handle-height;
+        
+        // Reactive background based on hover/press
+        background: area.pressed ? #334155   // darker when pressed
+                   : area.has-hover ? #64748b   // lighter when hovered
+                   : #475569;
+        border-radius: 0px;
+        area := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            mouse-cursor: MouseCursor.ns-resize;   // correct enum name
+            moved => {
+                if (self.pressed) {
+                    let dy = self.mouse-y - self.pressed-y;
+                    let new_top = clamp(top-slot.height + dy, min-top, available - min-bottom);
+                    ratio = available > 0px ? new_top / available : ratio;
+                }
+            }
+            double-clicked => {
+                ratio = 0.5;
+            }
+        }
+    }
+
+    bottom-slot := Rectangle {
+        y: handle.y + handle.height;
+        width: parent.width;
+        height: bottom-h;
+        background: transparent;
+    }
+}

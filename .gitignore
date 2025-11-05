@@ -23,5 +23,6 @@ Cargo.lock
 # Visual studio code
 .vscode
 .vscode-server
+*.code-workspace 
 
 *.bin

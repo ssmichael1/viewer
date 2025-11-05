@@ -1,51 +1,30 @@
-import {Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
-import {ToggleSwitch} from "toggleswitch.slint";
-import {DragArea, PlotBox, PlotRange, PlotData, MarkerType} from "plotting.slint";
-import {Shared} from "shared.slint";
-import {GroupBox, GroupBoxCollapsible} from "groupbox.slint";
-import {SVBonyCapDisp} from "svbony.slint";
+import {
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    ComboBox,
+    GridBox,
+    Palette,
+    Slider,
+} from "std-widgets.slint";
+import { ToggleSwitch } from "toggleswitch.slint";
+import {
+    DragArea,
+    PlotBox,
+    PlotRange,
+    PlotData,
+    MarkerType,
+} from "plotting.slint";
 
+import { Shared } from "shared.slint";
+import { GroupBox, GroupBoxCollapsible } from "groupbox.slint";
+import { SVBonyCapDisp } from "svbony.slint";
 
-component LabelText inherits Text {
-    in-out property <bool> enabled: true;
-
-    font-size: 14px;
-    horizontal-alignment: right;
-    vertical-alignment: center;
-    font-weight: 400;
-    color: enabled == true ? Palette.foreground : Palette.alternate-foreground;
-    width: 120px;
-    max-height: 20px;
-}
-
-component ValueText {
-
-    in-out property <string> text;
-    text <=> th.text;
-
-    max-width: 100px;
-    i-background := Rectangle {
-        border-width: 2px;
-        border-radius: 4px;
-        border-color: #333;
-        background: #ddd;
-    }
-
-    HorizontalLayout {
-        padding-left: 12pt;
-        padding-top: 4px;
-        padding-bottom: 4px;
-        th := Text {
-            font-family: "Courier";
-            font-size: 14px;
-            horizontal-alignment: left;
-            vertical-alignment: center;
-            font-weight: 400;
-            color: #333;
-            vertical-stretch: 0;
-        }
-    }
-}
+import { VerticalSplitPane } from "splitpane.slint";
+import { TabBar, TabPage, TabData } from "tabwindow.slint";
+import { ImageViewer } from "imageviewer.slint";
+import { EnhancedSlider } from "enhancedslider.slint";
+import { Toolbar } from "toolbar.slint";
 
 export component AppWindow inherits Window {
     title: "Camera Viewer";
@@ -69,10 +48,10 @@ export component AppWindow inherits Window {
     in-out property <int> valatpix: 0;
 
     // Called from .slint when user hits Ctrl/Cmd+Q
-        callback quit_requested();
+    callback quit_requested();
 
     // Route key events to our handler even if nothing else is focused
-        forward-focus: kb;
+    forward-focus: kb;
 
     kb := FocusScope {
         focus-on-click: true;
@@ -89,510 +68,781 @@ export component AppWindow inherits Window {
         }
     }
 
-    HorizontalBox {
-        y: 24px;
-        spacing: 12px;
-        padding-bottom: 24px;
-        padding-top: 20px;
-        padding-left: 16px;
-        padding-right: 16px;
+    VerticalLayout {
+        
+        // Microsoft Office-style Toolbar
+        toolbar := Rectangle {
+            height: 72px;
+            background: Palette.background;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 14px;
+                spacing: 6px;
+                
+                // Toggle axes button
+                toolbar-button-axes := Rectangle {
+                    width: 44px;
+                    height: 48px;
+                    border-radius: 4px;
+                    background: root.show-axes ? Palette.accent-background.with-alpha(0.2) : (ta-axes.has-hover ? (ta-axes.pressed ? Palette.alternate-background.darker(0.1) : Palette.alternate-background) : transparent);
+                    ta-axes := TouchArea {
+                        clicked => {
+                            root.show-axes = !root.show-axes;
+                        }
+                    }
 
-        VerticalBox {
-            padding: 0px;
-            GroupBoxCollapsible {
-                title: "Camera Controls";
-                collapsed: false;
-
-                GridLayout {
-                    padding: 16px;
-                    spacing-horizontal: 16px;
-                    spacing-vertical: 12px;
-                    Row {
-                        ComboBox {
-                            max-height: 30px;
-                            model: Shared.camera_list;
-                            selected(value) => {
-                                // Do something
-                            }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Image {
+                            source: @image-url("icon-axes.svg");
+                            width: 24px;
+                            height: 24px;
+                            colorize: root.show-axes ? Palette.accent-background : Palette.foreground;
                         }
 
-                        Button {
-                            text: "Connect";
-                            clicked => {
-                                // Do something
-                            }
+                        Text {
+                            text: "Axes";
+                            font-size: 12px;
+                            color: root.show-axes ? Palette.accent-background : Palette.foreground;
+                            horizontal-alignment: center;
+                            font-weight: root.show-axes ? 600 : 400;
+                            font-family: "SF Pro Text";
                         }
                     }
                 }
-
-                for cap in Shared.svbony_capabilities: HorizontalLayout {
-                    spacing: 8px;
-                    padding-left: 16px;
-                    padding-right: 16px;
-                    padding-top: 8px;
-                    padding-bottom: 8px;
-                    LabelText {
-                        text: cap.description;
-                        enabled: cap.writeable;
+                
+                // Toggle colorbar button
+                toolbar-button-colorbar := Rectangle {
+                    width: 54px;
+                    height: 48px;
+                    border-radius: 4px;
+                    background: root.show_colorbar ? Palette.accent-background.with-alpha(0.2) : (ta-colorbar.has-hover ? (ta-colorbar.pressed ? Palette.alternate-background.darker(0.1) : Palette.alternate-background) : transparent);
+                    ta-colorbar := TouchArea {
+                        clicked => {
+                            root.show_colorbar = !root.show_colorbar;
+                        }
                     }
 
-                    if (cap.writeable): Slider {
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Image {
+                            source: @image-url("icon-colorbar.svg");
+                            width: 24px;
+                            height: 24px;
+                            colorize: root.show_colorbar ? Palette.accent-background : Palette.foreground;
+                        }
+
+                        Text {
+                            text: "Colorbar";
+                            font-size: 12px;
+                            color: root.show_colorbar ? Palette.accent-background : Palette.foreground;
+                            horizontal-alignment: center;
+                            font-weight: root.show_colorbar ? 600 : 400;
+                            font-family: "SF Pro Text";
+                        }
+                    }
+                }
+                
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 52px;
+                    background: Palette.border;
+                }
+                
+                // False color map selector
+                VerticalLayout {
+                    spacing: 3px;
+                    alignment: center;
+
+                    Text {
+                        text: "False Color";
+                        color: Palette.alternate-foreground;
+                        font-size: 11px;
+                        font-weight: 600;
+                        font-family: "SF Pro Text";
+                        horizontal-alignment: center;
+                    }
+
+                    ComboBox {
+                        width: 120px;
                         preferred-height: 30px;
-                        width: 100px;
-                        minimum: cap.minval;
-                        maximum: cap.maxval;
-                        step: 1;
-                        value: cap.value;
-                        changed(value) => {
-                            Shared.svbony_cap_changed(cap.name, value);
-                            cap.value = value;
-                        }
-                    }
-                    if (cap.writeable): ValueText {
-                        text: cap.value;
-                        width: 6rem;
-                    }
-                    if (cap.auto && cap.writeable): ToggleSwitch {
-                        checked: cap.auto;
-                        toggled(value) => {
-                            if (value) {
-                                Shared.svbony_cap_changed(cap.name, -1);
-                            } else {
-                                Shared.svbony_cap_changed(cap.name, cap.value);
-                            }
-                        }
-                    }
-                }
-            }
-
-            GroupBoxCollapsible {
-                title: "Display Settings";
-                GridLayout {
-                    padding: 16px;
-                    spacing-horizontal: 16px;
-                    spacing-vertical: 12px;
-                    Row {
-                        LabelText {
-                            text: "Colormap";
-                        }
-
-                        ComboBox {
-                            max-height: 30px;
-                            width: 200px;
-                            model: ["Grayscale", "Parula", "Hot", "Red"];
-                            selected(value) => {
-                                Shared.colormap = value;
-                                Shared.view-changed();
-                            }
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Gamma";
-                        }
-
-                        HorizontalLayout {
-                            spacing: 16px;
-                            Slider {
-                                preferred-height: 30px;
-                                width: 120px;
-                                minimum: -1.0;
-                                maximum: 1.0;
-                                step: 0.01;
-                                value: Math.log(Shared.gamma, 10.0);
-                                changed(value) => {
-                                    Shared.gamma = Math.pow(10.0, value);
-                                    Shared.view-changed();
-                                }
-                            }
-
-                            ValueText {
-                                width: 6rem;
-                                text: (Shared.gamma * 100.0).round() / 100.0;
-                            }
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Auto Color Scale";
-                        }
-
-                        ToggleSwitch {
-                            checked: Shared.autoscale;
-                            toggled(value) => {
-                                Shared.autoscale = value;
-                                Shared.view-changed();
-                            }
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Manual Range";
-                            enabled: !Shared.autoscale;
-                        }
-
-                        ToggleSwitch {
-                            checked <=> Shared.manualfc;
-                            enabled: !Shared.autoscale;
-                            toggled(value) => {
-                                Shared.manualfc_min = Shared.histxrange.min;
-                                Shared.manualfc_max = Shared.histxrange.max;
-                                Shared.manualfc = value;
-                                Shared.view-changed();
-                            }
-                        }
-                    }
-
-                    Row {
-
-                        LabelText {
-                            text: "Show Axes";
-                        }
-
-                        ToggleSwitch {
-                            checked: show-axes;
-                            toggled(value) => {
-                                show-axes = value;
-                            }
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Show Colorbar";
-                        }
-
-                        ToggleSwitch {
-                            checked: show_colorbar;
-                            toggled(value) => {
-                                show_colorbar = value;
-                            }
-                        }
-                    }
-                }
-            } // end of groupbox display settings
-
-            GroupBoxCollapsible {
-                title: "Frame Statistics";
-
-                GridLayout {
-                    padding: 16px;
-                    spacing-horizontal: 12px;
-                    spacing-vertical: 12px;
-                    vertical-stretch: 1;
-                    Row {
-                        LabelText {
-                            text: "Frame Rate";
-                        }
-
-                        ValueText {
-                            width: 18rem;
-                            text: Shared.framerate;
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Mouseover Pixel";
-                        }
-
-                        ValueText {
-                            width: 18rem;
-                            text: Shared.mouseover_string(root.xpix, root.ypix, root.valatpix);
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Frame Mean";
-                        }
-
-                        ValueText {
-                            text: root.meantext;
-                        }
-                    }
-
-                    Row {
-                        LabelText {
-                            text: "Frame 1-Sigma";
-                        }
-
-                        ValueText {
-                            text: root.vartext;
-                        }
-                    }
-                }
-            } // end of groupbox frame statistics
-
-            GroupBoxCollapsible {
-                title: "Histogram";
-                ph := PlotBox {
-                    min-height: 64px;
-                    preferred-height: 320px;
-                    xlabel: "Pixel Value";
-                    ylabel: "Counts";
-                    xrange <=> Shared.histxrange;
-                    yrange <=> Shared.histyrange;
-                    plotdata <=> Shared.histdata;
-                    xticks <=> Shared.histxticks;
-                    yticks <=> Shared.histyticks;
-                    ytickpad: 5rem;
-                    if Shared.manualfc: dah := DragArea {
-                        x: ph.plot-x;
-                        y: ph.plot-y;
-                        width: ph.plot-width;
-                        height: ph.plot-height;
-                        fcmin <=> Shared.manualfc_min;
-                        fcmax <=> Shared.manualfc_max;
-                        range <=> Shared.histxrange;
-                        onchanged => {
+                        model: ["Grayscale", "Hot", "Parula", "Red", "Viridis", "Inferno", "Magma"];
+                        current-index: Shared.colormap == "Hot" ? 1 : (Shared.colormap == "Parula" ? 2 : (Shared.colormap == "Red" ? 3 : (Shared.colormap == "Viridis" ? 4 : (Shared.colormap == "Inferno" ? 5 : (Shared.colormap == "Magma" ? 6 : 0)))));
+                        selected(value) => {
+                            Shared.colormap = value;
                             Shared.view_changed();
                         }
                     }
                 }
+
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 52px;
+                    background: Palette.border;
+                }
+
+                // Color scale mode tri-state toggle with label
+                VerticalLayout {
+                    spacing: 3px;
+                    alignment: center;
+
+                    Text {
+                        text: "Scale Mode";
+                        color: Palette.alternate-foreground;
+                        font-size: 11px;
+                        font-weight: 600;
+                        font-family: "SF Pro Text";
+                        horizontal-alignment: center;
+                    }
+
+                    toolbar-button-scale := Rectangle {
+                        width: 165px;
+                        height: 30px;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        background: Palette.alternate-background;
+
+                        property <int> scale-state: Shared.autoscale ? 1 : (Shared.manualfc ? 2 : 0);
+
+                        HorizontalLayout {
+                            spacing: 0px;
+
+                            // Full button
+                            Rectangle {
+                                background: scale-state == 0 ? Palette.accent-background : (ta-full.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+                                border-top-left-radius: 4px;
+                                border-bottom-left-radius: 4px;
+
+                                ta-full := TouchArea {
+                                    clicked => {
+                                        Shared.autoscale = false;
+                                        Shared.manualfc = false;
+                                        Shared.view-changed();
+                                    }
+                                }
+
+                                Text {
+                                    text: "Full";
+                                    color: scale-state == 0 ? Palette.background : Palette.foreground;
+                                    font-size: 11px;
+                                    font-weight: scale-state == 0 ? 600 : 400;
+                                    font-family: "SF Pro Text";
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                    min-width: 52px;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 1px;
+                                background: Palette.border;
+                            }
+
+                            // Auto button
+                            Rectangle {
+                                background: scale-state == 1 ? Palette.accent-background : (ta-auto.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+
+                                ta-auto := TouchArea {
+                                    clicked => {
+                                        Shared.autoscale = true;
+                                        Shared.manualfc = false;
+                                        Shared.view-changed();
+                                    }
+                                }
+
+                                Text {
+                                    text: "Auto";
+                                    color: scale-state == 1 ? Palette.background : Palette.foreground;
+                                    font-size: 11px;
+                                    font-weight: scale-state == 1 ? 600 : 400;
+                                    font-family: "SF Pro Text";
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                    min-width: 52px;
+                                }
+                            }
+
+                            Rectangle {
+                                width: 1px;
+                                background: Palette.border;
+                            }
+
+                            // Manual button
+                            Rectangle {
+                                background: scale-state == 2 ? Palette.accent-background : (ta-manual.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+                                border-top-right-radius: 4px;
+                                border-bottom-right-radius: 4px;
+
+                                ta-manual := TouchArea {
+                                    clicked => {
+                                        Shared.autoscale = false;
+                                        Shared.manualfc = true;
+                                        Shared.view-changed();
+                                    }
+                                }
+
+                                Text {
+                                    text: "Manual";
+                                    color: scale-state == 2 ? Palette.background : Palette.foreground;
+                                    font-size: 11px;
+                                    font-weight: scale-state == 2 ? 600 : 400;
+                                    font-family: "SF Pro Text";
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                    min-width: 52px;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 52px;
+                    background: Palette.border;
+                }
+                
+                // Mouse-over pixel info with label
+                VerticalLayout {
+                    spacing: 3px;
+                    alignment: center;
+                    Text {
+                        text: "Mouse Over";
+                        color: Palette.alternate-foreground;
+                        font-size: 11px;
+                        font-weight: 600;
+                        font-family: "SF Pro Text";
+                        horizontal-alignment: center;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        
+                        // Pixel coordinates display
+                        Rectangle {
+                            height: 30px;
+                            background: Palette.alternate-background;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: Palette.border;
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 6px;
+                                Text {
+                                    text: "Pixel:";
+                                    color: Palette.alternate-foreground;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    font-family: "SF Pro Text";
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: root.xpix + "," + root.ypix;
+                                    color: Palette.foreground;
+                                    font-size: 11px;
+                                    font-family: "SF Mono";
+                                    vertical-alignment: center;
+                                    min-width: 50px;
+                                }
+                            }
+                        }
+                        
+                        // Pixel value display
+                        Rectangle {
+                            height: 30px;
+                            background: Palette.alternate-background;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: Palette.border;
+                            HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 8px;
+                                spacing: 6px;
+                                Text {
+                                    text: "Value:";
+                                    color: Palette.alternate-foreground;
+                                    font-size: 11px;
+                                    font-weight: 600;
+                                    font-family: "SF Pro Text";
+                                    vertical-alignment: center;
+                                }
+
+                                Text {
+                                    text: root.valatpix;
+                                    color: Palette.foreground;
+                                    font-size: 11px;
+                                    font-family: "SF Mono";
+                                    vertical-alignment: center;
+                                    min-width: 40px;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Spacer
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                
+                // Right-aligned info
+                HorizontalLayout {
+                    spacing: 12px;
+                    Text {
+                        text: Shared.framerate;
+                        color: Palette.accent-background;
+                        font-size: 13px;
+                        font-family: "SF Pro Text";
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
             }
-        } // end of vertical box
-
-        framebox_handle := GroupBox {
-            title: "Camera Frame";
-            property <length> colorbar_width: 5rem + 20px;
-            property <length> yaxis_width: 8rem;
-            property <length> xaxis_height: 40px;
-            height: parent.height - parent.padding-top - parent.padding-bottom - 12px;
+            
+            // Bottom border line
             Rectangle {
-                //height: parent.height - 48px;
-                // Some computations on positions...
-                property <length> top-pad: 12px;
-                property <length> available_width: self.width - (show_colorbar ? colorbar_width : 0) - (show-axes ? yaxis_width : 0);
-                property <length> available_height: self.height - (show-axes ? xaxis_height : 0) - top-pad;
-                property <float> available_aspect_ratio: available_width / available_height;
-                property <float> cam_aspect-ratio: camframe_width / camframe_height;
-                property <length> image_display_width: available_aspect_ratio > cam_aspect-ratio ? cam_aspect-ratio * available_height : available_width;
-                property <length> image_display_height: available_aspect_ratio > cam_aspect-ratio ? available_height : available_width / cam_aspect-ratio;
-                property <length> image_display_xoffset: (available_width - image_display_width - (show-axes ? yaxis_width : 0)) / 2 + (show-axes ? yaxis_width : 0);
-                property <length> image_display_yoffset: (available_height - image_display_height) / 2 + top-pad;
+                y: parent.height - 1px;
+                height: 1px;
+                width: parent.width;
+                background: Palette.border;
+            }
+        }
 
-                i-background2 := Rectangle {
-                    border-width: 1px;
-                    border-radius: 6px;
-                    border-color: white;
-                    background: white;
-                }
+        VerticalSplitPane {
+            ratio: 0.6;
+            top-slot := ImageViewer {
+                width: 100%;
+                x: 0;
+                y: 0;
+                height: parent.top-h;
+                colormap-image: root.colormap_image;
+                camframe-width <=> root.camframe_width;
+                camframe-height <=> root.camframe_height;
+                xpix <=> root.xpix;
+                ypix <=> root.ypix;
+                show-colorbar: root.show_colorbar;
+                show-axes: root.show-axes;
+            }
 
-                // The image
-                imh := Rectangle {
-                    width: image_display_width;
-                    height: image_display_height;
-                    x: image_display_xoffset;
-                    y: image_display_yoffset;
-                    Image {
-                        source: Shared.displayimage(image_display_width, image_display_height);
-                        x: 0;
-                        y: 0;
-                        width: image_display_width;
-                        height: image_display_height;
-                        image-fit: cover;
-                        image-rendering: pixelated;
-                    }
-                }
+            bottom-slot := Rectangle {
+                width: 100%;
+                height: parent.bottom-h;
+                x: 0;
+                y: parent.bottom-y;
+                background: Palette.background;
 
-                // The overlay
-                overlay_handle := Rectangle {
-                    width: image_display_width;
-                    height: image_display_height;
-                    x: image_display_xoffset;
-                    y: image_display_yoffset;
-                    background: transparent;
-                    border-width: 1.0px;
-                    border-color: #333;
+                property <[TabData]> tabs: [
+                    { title: "Histogram", content: "" },
+                    { title: "Camera Control", content: "" },
+                    { title: "Logs", content: "" },
+                ];
+                property <int> current-tab-index: 0;
 
-                    property <{x: length, y: length}> mousedown: { x: -1px, y: -1px };
-                    property <{x: int, y: int, width: int, height: int}> selection <=> Shared.roi;
+                VerticalLayout {
+                    padding: 0px;
+                    spacing: 0px;
 
-                    if (selection.width > 0 && selection.height > 0): Rectangle {
-                        x: selection.x / camframe_width * image_display_width;
-                        y: selection.y / camframe_height * image_display_height;
-                        width: selection.width / camframe_width * image_display_width;
-                        height: selection.height / camframe_height * image_display_height;
-                        border-width: 2px;
-                        border-color: yellow;
-                        border-radius: 2px;
-                        background: transparent;
+                    TabBar {
+                        current-index <=> bottom-slot.current-tab-index;
+                        tabs <=> bottom-slot.tabs;
+
+                        accent-color: Palette.accent-background;
+                        on-surface: Palette.foreground;
+                        muted: Palette.alternate-foreground;
+                        hover: Palette.alternate-background;
+                        border: Palette.border;
+
+                        request-add() => {
+                        }
+                        request-close(index) => {
+                        }
                     }
 
-                    TouchArea {
+                    Rectangle {
+                        background: Palette.background;
+                        border-width: 0px;
+                        clip: true;
 
-                        width: 100%;
-                        height: 100%;
-                        x: 0;
-                        y: 0;
-                        pointer-event(event) => {
-                            if (event.kind == PointerEventKind.move) {
-                                xpix = Math.floor(self.mouse-x / self.width * camframe_width);
-                                ypix = Math.floor(self.mouse-y / self.height * camframe_height);
-
-                                if (mousedown.x >= 0 && mousedown.y >= 0 && self.pressed) {
-                                    if (Math.abs(mousedown.x - self.mouse-x) > 2px && Math.abs(mousedown.y - self.mouse-y) > 2px) {
-                                        selection = {
-                                            x: Math.min(mousedown.x, self.mouse-x) * camframe_width / image_display_width,
-                                            y: Math.min(mousedown.y, self.mouse-y) * camframe_height / image_display_height,
-                                            width: Math.abs(mousedown.x - self.mouse-x) * camframe_width / image_display_width,
-                                            height: Math.abs(mousedown.y - self.mouse-y) * camframe_height / image_display_height
-                                        };
+                        TabPage {
+                            visible: bottom-slot.current-tab-index == 0;
+                            ph := PlotBox {
+                                min-height: 64px;
+                                preferred-height: 320px;
+                                xlabel: "Pixel Value";
+                                ylabel: "Counts";
+                                xrange <=> Shared.histxrange;
+                                yrange <=> Shared.histyrange;
+                                plotdata <=> Shared.histdata;
+                                xticks <=> Shared.histxticks;
+                                yticks <=> Shared.histyticks;
+                                ytickpad: 5rem;
+                                if Shared.manualfc: dah := DragArea {
+                                    x: ph.plot-x;
+                                    y: ph.plot-y;
+                                    width: ph.plot-width;
+                                    height: ph.plot-height;
+                                    fcmin <=> Shared.manualfc_min;
+                                    fcmax <=> Shared.manualfc_max;
+                                    range <=> Shared.histxrange;
+                                    onchanged => {
+                                        Shared.view_changed();
                                     }
                                 }
                             }
-                            if (event.kind == PointerEventKind.down) {
-                                if (event.button == PointerEventButton.left) {
-                                    mousedown = { x: self.mouse-x, y: self.mouse-y };
-                                    selection = { x: 0, y: 0, width: 0, height: 0 };
-                                }
-                            }
-                            if (event.kind == PointerEventKind.up) {
-                                if (event.button == PointerEventButton.left) {
-                                    mousedown = { x: -1px, y: -1px };
-                                    if (selection.width < 2 || selection.height < 2) {
-                                        selection = { x: 0, y: 0, width: 0, height: 0 };
-                                    } else {
+                        }
+
+                        TabPage {
+                            visible: bottom-slot.current-tab-index == 1;
+                            VerticalLayout {
+                                padding: 12px;
+                                spacing: 8px;
+                                
+                                // Header
+                                HorizontalLayout {
+                                    padding: 8px;
+                                    spacing: 12px;
+                                    Text {
+                                        text: "Camera Controls";
+                                        color: Palette.foreground;
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                        font-family: "SF Pro Display";
+                                        vertical-alignment: center;
                                     }
-                                    Shared.view_changed();
+
+                                    Rectangle {
+                                        // Spacer
+                                    }
+
+                                    Text {
+                                        text: Shared.framerate;
+                                        color: Palette.accent-background;
+                                        font-size: 15px;
+                                        font-weight: 600;
+                                        font-family: "SF Pro Display";
+                                        vertical-alignment: center;
+                                    }
+                                }
+
+                                Rectangle {
+                                    height: 1px;
+                                    background: Palette.border;
+                                }
+                                
+                                // Scrollable controls area
+                                Flickable {
+                                    viewport-height: controls-layout.preferred-height;
+                                    controls-layout := VerticalLayout {
+                                        spacing: 4px;
+                                        padding: 4px;
+                                        for cap in Shared.svbony_capabilities: Rectangle {
+                                            height: 56px;
+                                            background: cap.writeable ? Palette.background : Palette.alternate-background.darker(0.05);
+                                            border-radius: 8px;
+                                            border-width: 1px;
+                                            border-color: Palette.border;
+                                            HorizontalLayout {
+                                                padding-left: 16px;
+                                                padding-right: 16px;
+                                                padding-top: 8px;
+                                                padding-bottom: 8px;
+                                                spacing: 12px;
+                                                
+                                                // Label column
+                                                VerticalLayout {
+                                                    width: 140px;
+                                                    spacing: 2px;
+                                                    Text {
+                                                        text: cap.description;
+                                                        color: cap.writeable ? Palette.foreground : Palette.alternate-foreground;
+                                                        font-size: 14px;
+                                                        font-weight: 600;
+                                                        font-family: "SF Pro Text";
+                                                        vertical-alignment: center;
+                                                        overflow: elide;
+                                                    }
+
+                                                    Text {
+                                                        text: "Range: " + cap.minval + " - " + cap.maxval;
+                                                        color: Palette.alternate-foreground;
+                                                        font-size: 12px;
+                                                        font-family: "SF Pro Text";
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                
+                                                // Slider column
+                                                if cap.writeable: Rectangle {
+                                                    horizontal-stretch: 1;
+                                                    VerticalLayout {
+                                                        alignment: center;
+                                                        EnhancedSlider {
+                                                            minimum: cap.minval;
+                                                            maximum: cap.maxval;
+                                                            value: cap.value < 0 ? cap.default : cap.value;
+                                                            enabled: cap.writeable && cap.value >= 0;
+                                                            changed(value) => {
+                                                                // Setting a manual value turns off auto mode
+                                                                Shared.svbony_cap_changed(cap.name, value);
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                
+                                                // Value display
+                                                if cap.writeable: Rectangle {
+                                                    width: 80px;
+                                                    background: Palette.alternate-background;
+                                                    border-radius: 6px;
+                                                    border-width: 1px;
+                                                    border-color: Palette.border;
+                                                    Text {
+                                                        text: cap.value < 0 ? "Auto" : cap.value;
+                                                        color: cap.value < 0 ? Palette.accent-background : Palette.foreground;
+                                                        font-size: cap.value < 0 ? 13px : 15px;
+                                                        font-weight: 600;
+                                                        font-family: cap.value < 0 ? "SF Pro Text" : "SF Mono";
+                                                        horizontal-alignment: center;
+                                                        vertical-alignment: center;
+                                                    }
+                                                }
+                                                
+                                                // Auto toggle
+                                                if cap.auto && cap.writeable: Rectangle {
+                                                    width: 80px;
+                                                    VerticalLayout {
+                                                        alignment: center;
+                                                        spacing: 2px;
+                                                        ToggleSwitch {
+                                                            checked: cap.value < 0;
+                                                            toggled(value) => {
+                                                                if (value) {
+                                                                    Shared.svbony_cap_changed(cap.name, -1);
+                                                                } else {
+                                                                    Shared.svbony_cap_changed(cap.name, cap.default);
+                                                                }
+                                                            }
+                                                        }
+
+                                                        Text {
+                                                            text: "Auto";
+                                                            color: Palette.alternate-foreground;
+                                                            font-size: 11px;
+                                                            font-family: "SF Pro Text";
+                                                            horizontal-alignment: center;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                if show-axes: xax := Rectangle {
-                    width: image_display_width;
-                    height: xaxis_height;
-                    x: image_display_xoffset;
-                    y: image_display_yoffset + image_display_height - 8px;
+                        TabPage {
+                            visible: bottom-slot.current-tab-index == 2;
+                            VerticalLayout {
+                                padding: 18px;
+                                spacing: 12px;
 
-                    // Draw x axis tick marks
-                        for i in 9: Path {
-                        width: 2px;
-                        height: 16px;
-                        x: i * image_display_width / 8 - 1px;
-                        y: 0px;
-                        stroke-width: 1px;
-                        stroke: #333;
-                        MoveTo {
-                            x: 0;
-                            y: 0;
+                                Text {
+                                    text: "Logs";
+                                    color: Palette.foreground;
+                                    font-size: 18px;
+                                    font-weight: 700;
+                                }
+
+                                Rectangle {
+                                    height: 1px;
+                                    background: Palette.border;
+                                }
+
+                                Text {
+                                    text: "Application logs will appear here.";
+                                    color: Palette.alternate-foreground;
+                                    wrap: word-wrap;
+                                }
+                            }
                         }
-
-                        LineTo {
-                            x: 0;
-                            y: 100;
-                        }
-                    }
-                        // Draw x axis labels
-                        for i in 9: Rectangle {
-                        x: i * image_display_width / 8 - th.width / 2;
-                        y: 16px;
-                        th := Text {
-                            text: Math.round(i * camframe_width / 8);
-                            x: 0;
-                            y: 0;
-                            font-size: 14px;
-                            color: #333;
-                        }
-                    }
-                } // end of x axis
-
-
-                if show-axes: yax := Rectangle {
-                    width: image_display_xoffset + 4px;
-                    height: image_display_height;
-                    x: 0;
-                    y: image_display_yoffset;
-
-                    // Draw y axis tick marks
-                    for i in 9: Path {
-                        width: 12px;
-                        height: 2px;
-                        x: image_display_xoffset - 8px;
-                        y: i * image_display_height / 8 - 1px;
-                        stroke-width: 1px;
-                        stroke: #333;
-                        MoveTo {
-                            x: 0;
-                            y: 0;
-                        }
-
-                        LineTo {
-                            x: 100;
-                            y: 0;
-                        }
-                    }
-                        // Draw y axis labels
-                    for i in 9: Rectangle {
-                        x: image_display_xoffset - thy.width - 12px;
-                        y: i * image_display_height / 8 - thy.height / 2;
-                        thy := Text {
-                            text: Math.round(i * camframe_height / 8);
-                            x: 0;
-                            y: 0;
-                            font-size: 14px;
-                            color: #333;
-                            horizontal-alignment: right;
-                        }
-                    }
-                }
-
-                if (show_colorbar): Rectangle {
-                    width: colorbar_width;
-                    height: image_display_height;
-                    x: image_display_width + image_display_xoffset + 20px;
-                    y: image_display_yoffset;
-                    property <int> ncmap_ticks: 9;
-
-                    Image {
-                        i-background := Rectangle {
-                            border-width: 1.2px;
-                            border-radius: 2px;
-                            border-color: #555;
-                        }
-
-                        source: colormap_image;
-                        x: 0px;
-                        y: 0px;
-                        width: 20px;
-                        height: 100%;
-                        image-fit: fill;
-                        image-rendering: pixelated;
-                    }
-
-                    for c[i] in 9: Path {
-                        stroke-width: 1px;
-                        stroke: #333;
-                        x: 16px;
-                        y: i * parent.height / 8;
-                        width: 8px;
-                        height: 0px;
-                        MoveTo {
-                            x: 0;
-                            y: 0;
-                        }
-
-                        LineTo {
-                            x: 100;
-                            y: 0;
-                        }
-                    }
-                    for c[i] in ncmap_ticks: Text {
-                        text: Math.round((ncmap_ticks - i - 1) / (ncmap_ticks - 1) * (Shared.fcrange.max - Shared.fcrange.min) + Shared.fcrange.min);
-                        font-size: 12px;
-                        x: 26px;
-                        y: i * parent.height / (ncmap_ticks - 1) - 6px;
-                        color: #333;
                     }
                 }
             }
         }
-    } // main horizontal box
-} // main window
+        
+        // Status bar at the bottom
+        statusbar := Rectangle {
+            height: 28px;
+            background: Palette.background;
+            
+            // Top border line
+            Rectangle {
+                y: 0;
+                height: 1px;
+                width: parent.width;
+                background: Palette.border;
+            }
 
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                spacing: 16px;
+                
+                // Camera info section
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "📷";
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: Shared.camera_name != "" ? Shared.camera_name : "No Camera";
+                        color: Shared.camera_name != "" ? Palette.foreground : Palette.alternate-foreground;
+                        font-size: 12px;
+                        font-family: "SF Pro Text";
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+                
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 18px;
+                    background: Palette.border;
+                }
+                
+                // Frame rate section
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "⚡";
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: Shared.framerate != "" ? Shared.framerate : "-- fps";
+                        color: Palette.accent-background;
+                        font-size: 12px;
+                        font-family: "SF Mono";
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+                
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 18px;
+                    background: Palette.border;
+                }
+                
+                // Resolution section
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "🖼️";
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.camframe_width + " × " + root.camframe_height;
+                        color: Palette.foreground;
+                        font-size: 12px;
+                        font-family: "SF Mono";
+                        font-weight: 500;
+                        vertical-alignment: center;
+                    }
+                }
+                
+                // Separator
+                Rectangle {
+                    width: 1px;
+                    height: 18px;
+                    background: Palette.border;
+                }
+                
+                // Statistics section
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text {
+                        text: "μ:";
+                        color: Palette.alternate-foreground;
+                        font-size: 12px;
+                        font-family: "SF Pro Text";
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.meantext;
+                        color: Palette.foreground;
+                        font-size: 12px;
+                        font-family: "SF Mono";
+                        vertical-alignment: center;
+                        min-width: 50px;
+                    }
+
+                    Text {
+                        text: "σ:";
+                        color: Palette.alternate-foreground;
+                        font-size: 12px;
+                        font-family: "SF Pro Text";
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: root.vartext;
+                        color: Palette.foreground;
+                        font-size: 12px;
+                        font-family: "SF Mono";
+                        vertical-alignment: center;
+                        min-width: 50px;
+                    }
+                }
+                
+                // Spacer to push remaining items to the right
+                Rectangle {
+                    horizontal-stretch: 1;
+                }
+                
+                // Scale mode indicator
+                HorizontalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: "Scale:";
+                        color: Palette.alternate-foreground;
+                        font-size: 11px;
+                        font-family: "SF Pro Text";
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: Shared.autoscale ? "Auto" : (Shared.manualfc ? "Manual" : "Full");
+                        color: Palette.accent-background;
+                        font-size: 11px;
+                        font-family: "SF Pro Text";
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,343 @@
+import { Palette, ComboBox } from "std-widgets.slint";
+import { Shared } from "shared.slint";
+
+export component Toolbar {
+    in-out property <bool> show-axes;
+    in-out property <bool> show-colorbar;
+    in-out property <int> xpix;
+    in-out property <int> ypix;
+    in-out property <int> valatpix;
+    height: 72px;
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: Palette.background;
+        HorizontalLayout {
+            padding-left: 12px;
+            padding-right: 12px;
+            padding-top: 14px;
+            spacing: 6px;
+            
+            // Toggle axes button
+            toolbar-button-axes := Rectangle {
+                width: 44px;
+                height: 48px;
+                border-radius: 4px;
+                background: root.show-axes ? Palette.accent-background.with-alpha(0.2) : (ta-axes.has-hover ? (ta-axes.pressed ? Palette.alternate-background.darker(0.1) : Palette.alternate-background) : transparent);
+                ta-axes := TouchArea {
+                    clicked => {
+                        root.show-axes = !root.show-axes;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: "📐";
+                        font-size: 18px;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Axes";
+                        font-size: 11px;
+                        color: root.show-axes ? Palette.accent-background : Palette.foreground;
+                        horizontal-alignment: center;
+                        font-weight: root.show-axes ? 600 : 400;
+                    }
+                }
+            }
+            
+            // Toggle colorbar button
+            toolbar-button-colorbar := Rectangle {
+                width: 54px;
+                height: 48px;
+                border-radius: 4px;
+                background: root.show_colorbar ? Palette.accent-background.with-alpha(0.2) : (ta-colorbar.has-hover ? (ta-colorbar.pressed ? Palette.alternate-background.darker(0.1) : Palette.alternate-background) : transparent);
+                ta-colorbar := TouchArea {
+                    clicked => {
+                        root.show_colorbar = !root.show_colorbar;
+                    }
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 2px;
+                    Text {
+                        text: "🎨";
+                        font-size: 18px;
+                        horizontal-alignment: center;
+                    }
+
+                    Text {
+                        text: "Colorbar";
+                        font-size: 11px;
+                        color: root.show_colorbar ? Palette.accent-background : Palette.foreground;
+                        horizontal-alignment: center;
+                        font-weight: root.show_colorbar ? 600 : 400;
+                    }
+                }
+            }
+            
+            // Separator
+            Rectangle {
+                width: 1px;
+                height: 52px;
+                background: Palette.border;
+            }
+            
+            // False color map selector
+            VerticalLayout {
+                spacing: 3px;
+                alignment: center;
+
+                Text {
+                    text: "False Color";
+                    color: Palette.alternate-foreground;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                ComboBox {
+                    width: 120px;
+                    preferred-height: 30px;
+                    model: ["Grayscale", "Hot", "Parula", "Red"];
+                    current-index: Shared.colormap == "Hot" ? 1 : (Shared.colormap == "Parula" ? 2 : (Shared.colormap == "Red" ? 3 : 0));
+                    selected(value) => {
+                        Shared.colormap = value;
+                        Shared.view_changed();
+                    }
+                }
+            }
+
+            // Separator
+            Rectangle {
+                width: 1px;
+                height: 52px;
+                background: Palette.border;
+            }
+
+            // Color scale mode tri-state toggle with label
+            VerticalLayout {
+                spacing: 3px;
+                alignment: center;
+
+                Text {
+                    text: "Scale Mode";
+                    color: Palette.alternate-foreground;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                toolbar-button-scale := Rectangle {
+                    width: 120px;
+                    height: 30px;
+                    border-radius: 4px;
+                    border-width: 1px;
+                    border-color: Palette.border;
+                    background: Palette.alternate-background;
+
+                    property <int> scale-state: Shared.autoscale ? 1 : (Shared.manualfc ? 2 : 0);
+
+                    HorizontalLayout {
+                        spacing: 0px;
+
+                        // Full button
+                        Rectangle {
+                            background: scale-state == 0 ? Palette.accent-background : (ta-full.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+                            border-top-left-radius: 4px;
+                            border-bottom-left-radius: 4px;
+
+                            ta-full := TouchArea {
+                                clicked => {
+                                    Shared.autoscale = false;
+                                    Shared.manualfc = false;
+                                    Shared.view-changed();
+                                }
+                            }
+
+                            Text {
+                                text: "Full";
+                                color: scale-state == 0 ? Palette.background : Palette.foreground;
+                                font-size: 10px;
+                                font-weight: scale-state == 0 ? 600 : 400;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                min-width: 40px;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 1px;
+                            background: Palette.border;
+                        }
+
+                        // Auto button
+                        Rectangle {
+                            background: scale-state == 1 ? Palette.accent-background : (ta-auto.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+
+                            ta-auto := TouchArea {
+                                clicked => {
+                                    Shared.autoscale = true;
+                                    Shared.manualfc = false;
+                                    Shared.view-changed();
+                                }
+                            }
+
+                            Text {
+                                text: "Auto";
+                                color: scale-state == 1 ? Palette.background : Palette.foreground;
+                                font-size: 10px;
+                                font-weight: scale-state == 1 ? 600 : 400;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                min-width: 40px;
+                            }
+                        }
+
+                        Rectangle {
+                            width: 1px;
+                            background: Palette.border;
+                        }
+
+                        // Manual button
+                        Rectangle {
+                            background: scale-state == 2 ? Palette.accent-background : (ta-manual.has-hover ? Palette.alternate-background.darker(0.05) : transparent);
+                            border-top-right-radius: 4px;
+                            border-bottom-right-radius: 4px;
+
+                            ta-manual := TouchArea {
+                                clicked => {
+                                    Shared.autoscale = false;
+                                    Shared.manualfc = true;
+                                    Shared.view-changed();
+                                }
+                            }
+
+                            Text {
+                                text: "Manual";
+                                color: scale-state == 2 ? Palette.background : Palette.foreground;
+                                font-size: 10px;
+                                font-weight: scale-state == 2 ? 600 : 400;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                                min-width: 40px;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Separator
+            Rectangle {
+                width: 1px;
+                height: 52px;
+                background: Palette.border;
+            }
+            
+            // Mouse-over pixel info with label
+            VerticalLayout {
+                spacing: 3px;
+                alignment: center;
+                Text {
+                    text: "Mouse Over";
+                    color: Palette.alternate-foreground;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                }
+
+                HorizontalLayout {
+                    spacing: 8px;
+                    
+                    // Pixel coordinates display
+                    Rectangle {
+                        height: 30px;
+                        background: Palette.alternate-background;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Text {
+                                text: "Pixel:";
+                                color: Palette.alternate-foreground;
+                                font-size: 10px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: root.xpix + "," + root.ypix;
+                                color: Palette.foreground;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                min-width: 50px;
+                            }
+                        }
+                    }
+                    
+                    // Pixel value display
+                    Rectangle {
+                        height: 30px;
+                        background: Palette.alternate-background;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        HorizontalLayout {
+                            padding-left: 8px;
+                            padding-right: 8px;
+                            spacing: 6px;
+                            Text {
+                                text: "Value:";
+                                color: Palette.alternate-foreground;
+                                font-size: 10px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: root.valatpix;
+                                color: Palette.foreground;
+                                font-size: 10px;
+                                vertical-alignment: center;
+                                min-width: 40px;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Spacer
+            Rectangle {
+                horizontal-stretch: 1;
+            }
+            
+            // Right-aligned info
+            HorizontalLayout {
+                spacing: 12px;
+                Text {
+                    text: Shared.framerate;
+                    color: Palette.accent-background;
+                    font-size: 12px;
+                    font-family: "SF Pro Text";
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        
+        // Bottom border line
+        Rectangle {
+            y: parent.height - 1px;
+            height: 1px;
+            width: parent.width;
+            background: Palette.border;
+        }
+    }
+}

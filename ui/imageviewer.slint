@@ -1,0 +1,249 @@
+import { Shared } from "shared.slint";
+
+export component ImageViewer inherits Rectangle {
+    in-out property <image> colormap-image;
+    in-out property <int> camframe-width: 512;
+    in-out property <int> camframe-height: 512;
+    in-out property <int> xpix: 0;
+    in-out property <int> ypix: 0;
+    in property <bool> show-colorbar: true;
+    in property <bool> show-axes: true;
+
+    property <length> colorbar_width: 5rem + 20px;
+    property <length> yaxis_width: 8rem;
+    property <length> xaxis_height: 40px;
+
+    Rectangle {
+        property <length> top-pad: 12px;
+        property <length> available_width: self.width - (show-colorbar ? colorbar_width : 0) - (show-axes ? yaxis_width : 0);
+        property <length> available_height: self.height - (show-axes ? xaxis_height : 0) - top-pad;
+        property <float> available_aspect_ratio: available_width / available_height;
+        property <float> cam_aspect-ratio: camframe-width / camframe-height;
+        property <length> image_display_width: available_aspect_ratio > cam_aspect-ratio ? cam_aspect-ratio * available_height : available_width;
+        property <length> image_display_height: available_aspect_ratio > cam_aspect-ratio ? available_height : available_width / cam_aspect-ratio;
+        property <length> image_display_xoffset: (available_width - image_display_width - (show-axes ? yaxis_width : 0)) / 2 + (show-axes ? yaxis_width : 0);
+        property <length> image_display_yoffset: (available_height - image_display_height) / 2 + top-pad;
+
+        i-background2 := Rectangle {
+            border-width: 1px;
+            border-radius: 6px;
+            border-color: white;
+            background: white;
+        }
+
+        // The image
+        imh := Rectangle {
+            width: image_display_width;
+            height: image_display_height;
+            x: image_display_xoffset;
+            y: image_display_yoffset;
+            Image {
+                // Depend on frame-counter to trigger refresh
+                source: Shared.frame-counter >= 0 ? Shared.displayimage(image_display_width, image_display_height) : @image-url("");
+                x: 0;
+                y: 0;
+                width: image_display_width;
+                height: image_display_height;
+                image-fit: cover;
+                image-rendering: pixelated;
+            }
+        }
+
+        // The overlay
+        overlay_handle := Rectangle {
+            width: image_display_width;
+            height: image_display_height;
+            x: image_display_xoffset;
+            y: image_display_yoffset;
+            background: transparent;
+            border-width: 1.0px;
+            border-color: #333;
+
+            property <{x: length, y: length}> mousedown: { x: -1px, y: -1px };
+            property <{x: int, y: int, width: int, height: int}> selection <=> Shared.roi;
+
+            if (selection.width > 0 && selection.height > 0): Rectangle {
+                x: selection.x / camframe-width * image_display_width;
+                y: selection.y / camframe-height * image_display_height;
+                width: selection.width / camframe-width * image_display_width;
+                height: selection.height / camframe-height * image_display_height;
+                border-width: 2px;
+                border-color: yellow;
+                border-radius: 2px;
+                background: transparent;
+            }
+
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                x: 0;
+                y: 0;
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.move) {
+                        root.xpix = Math.floor(self.mouse-x / self.width * camframe-width);
+                        root.ypix = Math.floor(self.mouse-y / self.height * camframe-height);
+
+                        if (mousedown.x >= 0 && mousedown.y >= 0 && self.pressed) {
+                            if (Math.abs(mousedown.x - self.mouse-x) > 2px && Math.abs(mousedown.y - self.mouse-y) > 2px) {
+                                selection = {
+                                    x: Math.min(mousedown.x, self.mouse-x) * camframe-width / image_display_width,
+                                    y: Math.min(mousedown.y, self.mouse-y) * camframe-height / image_display_height,
+                                    width: Math.abs(mousedown.x - self.mouse-x) * camframe-width / image_display_width,
+                                    height: Math.abs(mousedown.y - self.mouse-y) * camframe-height / image_display_height
+                                };
+                            }
+                        }
+                    }
+                    if (event.kind == PointerEventKind.down) {
+                        if (event.button == PointerEventButton.left) {
+                            mousedown = { x: self.mouse-x, y: self.mouse-y };
+                            selection = { x: 0, y: 0, width: 0, height: 0 };
+                        }
+                    }
+                    if (event.kind == PointerEventKind.up) {
+                        if (event.button == PointerEventButton.left) {
+                            mousedown = { x: -1px, y: -1px };
+                            if (selection.width < 2 || selection.height < 2) {
+                                selection = { x: 0, y: 0, width: 0, height: 0 };
+                            } else {
+                            }
+                            Shared.view_changed();
+                        }
+                    }
+                }
+            }
+        }
+
+        if show-axes: xax := Rectangle {
+            width: image_display_width;
+            height: xaxis_height;
+            x: image_display_xoffset;
+            y: image_display_yoffset + image_display_height - 8px;
+
+            // Draw x axis tick marks
+            for i in 9: Path {
+                width: 2px;
+                height: 16px;
+                x: i * image_display_width / 8 - 1px;
+                y: 0px;
+                stroke-width: 1px;
+                stroke: #333;
+                MoveTo {
+                    x: 0;
+                    y: 0;
+                }
+
+                LineTo {
+                    x: 0;
+                    y: 100;
+                }
+            }
+            // Draw x axis labels
+            for i in 9: Rectangle {
+                x: i * image_display_width / 8 - th.width / 2;
+                y: 16px;
+                th := Text {
+                    text: Math.round(i * camframe-width / 8);
+                    x: 0;
+                    y: 0;
+                    font-size: 15px;
+                    font-family: "SF Mono";
+                    font-weight: 500;
+                    color: #333;
+                }
+            }
+        } // end of x axis
+
+        if show-axes: yax := Rectangle {
+            width: image_display_xoffset + 4px;
+            height: image_display_height;
+            x: 0;
+            y: image_display_yoffset;
+
+            // Draw y axis tick marks
+            for i in 9: Path {
+                width: 12px;
+                height: 2px;
+                x: image_display_xoffset - 8px;
+                y: i * image_display_height / 8 - 1px;
+                stroke-width: 1px;
+                stroke: #333;
+                MoveTo {
+                    x: 0;
+                    y: 0;
+                }
+
+                LineTo {
+                    x: 100;
+                    y: 0;
+                }
+            }
+            // Draw y axis labels
+            for i in 9: Rectangle {
+                x: image_display_xoffset - thy.width - 12px;
+                y: i * image_display_height / 8 - thy.height / 2;
+                thy := Text {
+                    text: Math.round(i * camframe-height / 8);
+                    x: 0;
+                    y: 0;
+                    font-size: 15px;
+                    font-family: "SF Mono";
+                    font-weight: 500;
+                    color: #333;
+                    horizontal-alignment: right;
+                }
+            }
+        }
+
+        if (show-colorbar): Rectangle {
+            width: colorbar_width;
+            height: image_display_height;
+            x: image_display_width + image_display_xoffset + 20px;
+            y: image_display_yoffset;
+            property <int> ncmap_ticks: 9;
+
+            Image {
+                i-background := Rectangle {
+                    border-width: 1.2px;
+                    border-radius: 2px;
+                    border-color: #555;
+                }
+
+                source: colormap-image;
+                x: 0px;
+                y: 0px;
+                width: 20px;
+                height: 100%;
+                image-fit: fill;
+                image-rendering: pixelated;
+            }
+
+            for c[i] in 9: Path {
+                stroke-width: 1px;
+                stroke: #333;
+                x: 16px;
+                y: i * parent.height / 8;
+                width: 8px;
+                height: 0px;
+                MoveTo {
+                    x: 0;
+                    y: 0;
+                }
+
+                LineTo {
+                    x: 100;
+                    y: 0;
+                }
+            }
+            for c[i] in ncmap_ticks: Text {
+                text: Math.round((ncmap_ticks - i - 1) / (ncmap_ticks - 1) * (Shared.fcrange.max - Shared.fcrange.min) + Shared.fcrange.min);
+                font-size: 13px;
+                font-family: "SF Mono";
+                font-weight: 500;
+                x: 26px;
+                y: i * parent.height / (ncmap_ticks - 1) - 6px;
+                color: #333;
+            }
+        }
+    }
+}

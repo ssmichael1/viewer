@@ -13,10 +13,82 @@ export global PlotGlobal {
 component VertBar inherits Rectangle {
     x: 0;
     y: 0;
-    width: 0.5rem;
+    width: 3px;
     height: 100%;
-    in-out property <color> gcolor: yellow;
-    background: @linear-gradient(90deg, #333 0%, gcolor 30%, #333 90%);
+    in-out property <color> gcolor: #0066ff;
+    in-out property <bool> is-dragging: false;
+    
+    // Outer glow/shadow effect
+    Rectangle {
+        x: -2px;
+        y: 0;
+        width: parent.width + 4px;
+        height: parent.height;
+        background: gcolor.with-alpha(0.2);
+        border-radius: 2px;
+    }
+    
+    // Main bar
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: gcolor;
+        border-radius: 1.5px;
+    }
+    
+    // Top handle
+    Rectangle {
+        x: -4px;
+        y: -2px;
+        width: parent.width + 8px;
+        height: 8px;
+        background: @linear-gradient(180deg, gcolor 0%, gcolor.darker(0.3) 100%);
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: gcolor.darker(0.5);
+        
+        // Grip lines
+        Rectangle {
+            x: parent.width / 2 - 1px;
+            y: 2px;
+            width: 2px;
+            height: 4px;
+            background: #ffffff88;
+            border-radius: 1px;
+        }
+    }
+    
+    // Bottom handle
+    Rectangle {
+        x: -4px;
+        y: parent.height - 6px;
+        width: parent.width + 8px;
+        height: 8px;
+        background: @linear-gradient(180deg, gcolor.darker(0.3) 0%, gcolor 100%);
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: gcolor.darker(0.5);
+        
+        // Grip lines
+        Rectangle {
+            x: parent.width / 2 - 1px;
+            y: 2px;
+            width: 2px;
+            height: 4px;
+            background: #ffffff88;
+            border-radius: 1px;
+        }
+    }
+
+    states [
+        dragging when is-dragging: {
+            width: 4px;
+        }
+    ]
+    animate width {
+        duration: 100ms;
+        easing: ease-out;
+    }
 }
 
 export component DragArea inherits Rectangle {
@@ -24,7 +96,7 @@ export component DragArea inherits Rectangle {
     in-out property <bool> maxdrag: false;
 
     in-out property <int> fcmin: 0.0;
-    in-out property <int> fcmax: 65536;
+    in-out property <int> fcmax: 4095;
     in-out property <PlotRange> range: { min: 0, max: 1 };
 
     callback onchanged;
@@ -32,11 +104,15 @@ export component DragArea inherits Rectangle {
     vbmin := VertBar {
         x: parent.width * (fcmin - range.min) / (range.max - range.min) - self.width / 2;
         y: 0;
+        gcolor: #ff4444;
+        is-dragging: mindrag;
     }
 
     vbmax := VertBar {
         x: parent.width * (fcmax - range.min) / (range.max - range.min) - self.width / 2;
         y: 0;
+        gcolor: #44ff44;
+        is-dragging: maxdrag;
     }
 
     TouchArea {
@@ -44,12 +120,13 @@ export component DragArea inherits Rectangle {
         y: 0;
         width: parent.width;
         height: parent.height;
+        mouse-cursor: mindrag || maxdrag ? MouseCursor.col-resize : MouseCursor.default;
 
         pointer-event(event) => {
             if (event.kind == PointerEventKind.down) {
-                if (Math.abs(self.mouse-x - (vbmin.x + vbmin.width / 2)) < 4px) {
+                if (Math.abs(self.mouse-x - (vbmin.x + vbmin.width / 2)) < 8px) {
                     mindrag = true;
-                } else if (Math.abs(self.mouse-x - (vbmax.x + vbmax.width / 2)) < 4px) {
+                } else if (Math.abs(self.mouse-x - (vbmax.x + vbmax.width / 2)) < 8px) {
                     maxdrag = true;
                 }
             }
@@ -58,25 +135,23 @@ export component DragArea inherits Rectangle {
                 maxdrag = false;
             }
             if (mindrag) {
-                vbmin.x = self.mouse-x - vbmin.width / 2;
-                if (vbmin.x < -vbmin.width / 2) {
-                    vbmin.x = -vbmin.width / 2;
+                // Calculate new fcmin from mouse position
+                fcmin = Math.max(range.min, Math.min(range.max, 
+                    (self.mouse-x / parent.width) * (range.max - range.min) + range.min));
+                // Ensure minimum doesn't exceed maximum
+                if (fcmin > fcmax - 1) {
+                    fcmin = fcmax - 1;
                 }
-                if (vbmin.x > vbmax.x - 4px) {
-                    vbmin.x = vbmax.x - 4px;
-                }
-                fcmin = ((vbmin.x + vbmin.width / 2) / parent.width) * (range.max - range.min) + range.min;
                 onchanged();
             }
             if (maxdrag) {
-                vbmax.x = self.mouse-x - vbmax.width / 2;
-                if (vbmax.x > parent.width - vbmax.width / 2) {
-                    vbmax.x = parent.width - vbmax.width / 2;
+                // Calculate new fcmax from mouse position
+                fcmax = Math.max(range.min, Math.min(range.max,
+                    (self.mouse-x / parent.width) * (range.max - range.min) + range.min));
+                // Ensure maximum doesn't go below minimum
+                if (fcmax < fcmin + 1) {
+                    fcmax = fcmin + 1;
                 }
-                if (vbmax.x < vbmin.x + 4px) {
-                    vbmax.x = vbmin.x + 4px;
-                }
-                fcmax = (vbmax.x + vbmax.width / 2) / parent.width * (range.max - range.min) + range.min;
                 onchanged();
             }
         }
@@ -86,8 +161,8 @@ export component DragArea inherits Rectangle {
 export component PlotBox inherits Rectangle {
     in-out property <string> xlabel: "X Axis";
     in-out property <string> ylabel: "Y Axis";
-    in-out property <length> xlabelsize: 1.2rem;
-    in-out property <length> ylabelsize: 1.2rem;
+    in-out property <length> xlabelsize: 1.4rem;
+    in-out property <length> ylabelsize: 1.4rem;
 
     in-out property <length> ytopmargin: 16px;
     in-out property <PlotRange> xrange: { min: 0, max: 10 };
@@ -123,6 +198,8 @@ export component PlotBox inherits Rectangle {
                 y: 0;
                 text <=> xlabel;
                 font-size: xlabelsize;
+                font-family: "SF Pro Text";
+                font-weight: 600;
                 color: #333;
                 horizontal-alignment: center;
                 vertical-alignment: center;
@@ -154,7 +231,8 @@ export component PlotBox inherits Rectangle {
                 x: 0;
                 y: -self.height / 2 + 6px;
                 text: xt;
-                font-size: 1.2rem;
+                font-size: 1.3rem;
+                font-family: "SF Mono";
                 color: #333;
                 horizontal-alignment: center;
                 vertical-alignment: center;
@@ -186,14 +264,13 @@ export component PlotBox inherits Rectangle {
                 y: self.width / 2 + parent.height / 2;
                 text <=> ylabel;
                 font-size: ylabelsize;
+                font-family: "SF Pro Text";
+                font-weight: 600;
                 color: #555;
                 horizontal-alignment: center;
                 vertical-alignment: center;
-                rotation-angle: -90deg;
-                //rotation-origin-x: self.width / 2;
-                //rotation-origin-y: self.height / 2;
-                rotation-origin-x: 0;
-                rotation-origin-y: 0;
+                transform-rotation: -90deg;
+                transform-origin: { x: 0, y: 0 };
             }
         }
 
@@ -212,7 +289,8 @@ export component PlotBox inherits Rectangle {
                 x: 0;
                 y: 0;
                 text: yt;
-                font-size: 1.2rem;
+                font-size: 1.3rem;
+                font-family: "SF Mono";
                 color: #333;
                 horizontal-alignment: right;
                 vertical-alignment: center;

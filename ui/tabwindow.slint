@@ -1,0 +1,483 @@
+import { Palette } from "std-widgets.slint";
+
+export struct TabData {
+    title: string,
+    content: string,
+}
+
+// ------- Close chip (×) -------
+component CloseChip inherits Rectangle {
+    in property <brush> on-surface;
+    in property <brush> muted;
+    in property <brush> hover;
+
+    width: 16px;
+    height: 16px;
+    border-radius: 2px;
+    background: transparent;
+
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        border-radius: parent.border-radius;
+        background: ta.has-hover ? Palette.alternate-background.darker(0.2) : transparent;
+        animate background { duration: 80ms; }
+    }
+
+    Text {
+        text: "✕";
+        color: ta.has-hover ? on-surface : muted;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        font-weight: 400;
+        font-family: "SF Pro Text";
+        font-size: 11px;
+    }
+
+    callback clicked();
+}
+
+// ------- Individual Tab Button -------
+component TabButton inherits Rectangle {
+    in property <string> title;
+    in property <bool> selected;
+    in property <bool> show-close: false;
+    in property <brush> accent-color;
+    in property <brush> on-surface;
+    in property <brush> muted;
+    in property <brush> hover;
+
+    min-width: 120px;
+    max-width: 180px;
+    background: selected ? Palette.background.darker(0.03) : Palette.alternate-background.darker(0.08);
+
+    // Right border separator
+    Rectangle {
+        x: parent.width - 1px;
+        y: 0;
+        width: 1px;
+        height: parent.height;
+        background: Palette.border.darker(0.3);
+    }
+
+    // Bottom border accent for selected tab (VS Code style)
+    Rectangle {
+        height: 1px;
+        width: parent.width;
+        y: parent.height - 1px;
+        background: selected ? accent-color : transparent;
+    }
+
+    // input (hover via has-hover)
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    // hover overlay
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        background: ta.has-hover ? (selected ? Palette.background : Palette.alternate-background.darker(0.03)) : transparent;
+        animate background { duration: 80ms; }
+    }
+
+    // label + close chip
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 8px;
+        spacing: 8px;
+
+        Text {
+            text: title;
+            color: selected ? on-surface : muted;
+            vertical-alignment: center;
+            font-weight: 400;
+            font-family: "SF Pro Text";
+            font-size: 13px;
+            overflow: elide;
+            animate color { duration: 80ms; }
+        }
+
+        if root.show-close: CloseChip {
+            visible: ta.has-hover;
+            on-surface: on-surface;
+            muted: muted;
+            hover: hover;
+            clicked => {
+                root.on-close();
+            }
+        }
+    }
+
+    // signals up
+    callback clicked();
+    callback on-close();
+}
+
+// ------- Add (+) button -------
+component AddButton inherits Rectangle {
+    in property <brush> on-surface;
+    in property <brush> muted;
+    in property <brush> hover;
+
+    width: 35px;
+    height: 100%;
+    background: Palette.alternate-background.darker(0.08);
+
+    ta := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            root.clicked();
+        }
+    }
+
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: parent.width;
+        height: parent.height;
+        background: ta.has-hover ? Palette.alternate-background.darker(0.03) : transparent;
+        animate background { duration: 80ms; }
+        Text {
+            text: "+";
+            color: ta.has-hover ? on-surface : muted;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-weight: 300;
+            font-family: "SF Pro Text";
+            font-size: 18px;
+        }
+    }
+
+    callback clicked();
+}
+
+// ------- Tab Page (content area) -------
+export component TabPage inherits Rectangle {
+    background: transparent;
+
+    @children
+}
+
+// ------- Tab Bar -------
+export component TabBar inherits Rectangle {
+    in property <[TabData]> tabs;
+    in-out property <int> current-index;
+    in property <bool> show-close: false;
+    in property <bool> show-add: false;
+    in property <brush> accent-color;
+    in property <brush> on-surface;
+    in property <brush> muted;
+    in property <brush> hover;
+    in property <brush> border;
+
+    height: 35px;
+    background: Palette.alternate-background.darker(0.08);
+
+    callback request-add();
+    callback request-close(index: int);
+
+    HorizontalLayout {
+        spacing: 0px;
+
+        // Scrollable row of tabs on the left
+        Rectangle {
+            clip: true;
+            Flickable {
+                width: 100%;
+                height: 100%;
+
+                HorizontalLayout {
+                    spacing: 0px;
+                    padding-left: 0px;
+                    padding-right: 0px;
+
+                    for t[i] in root.tabs: TabButton {
+                        title: t.title;
+                        selected: i == root.current-index;
+                        show-close: root.show-close;
+                        accent-color: root.accent-color;
+                        on-surface: root.on-surface;
+                        muted: root.muted;
+                        hover: root.hover;
+
+                        clicked => {
+                            root.current-index = i;
+                        }
+                        on-close => {
+                            root.request-close(i);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Add button on the right
+        if root.show-add: AddButton {
+            on-surface: root.on-surface;
+            muted: root.muted;
+            hover: root.hover;
+            clicked => {
+                root.request-add();
+            }
+        }
+    }
+}
+
+export component MainWindow2 inherits Window {
+    width: 900px;
+    height: 600px;
+    title: "Slint — Tabs (1.14-compatible)";
+
+    background: Palette.background;
+
+    // ------- Data -------
+    // Demo data (replace from Rust if you like)
+    property <[TabData]> tabs: [
+        { title: "Overview", content: "Welcome to the Overview tab.\nPut your widgets here." },
+        { title: "Images", content: "This tab could host your FITS viewer or image tools." },
+        { title: "Logs", content: "Streaming logs and status go here." },
+        { title: "Settings", content: "Knobs, toggles, and preferences." },
+    ];
+    property <int> current-index: 0;
+
+    // ------- Layout -------
+    VerticalLayout {
+        padding: 12px;
+        spacing: 12px;
+
+        TabBar {
+            current-index <=> root.current-index;
+            tabs <=> root.tabs;
+
+            accent-color: Palette.accent-background;
+            on-surface: Palette.foreground;
+            muted: Palette.alternate-foreground;
+            hover: Palette.alternate-background;
+            border: Palette.border;
+
+            // Handle callbacks for host code to mutate tabs
+            request-add() => {
+            }
+            request-close(index) => {
+            }
+        }
+
+        // Content area: show only the selected page
+        Rectangle {
+            background: Palette.alternate-background;
+            border-width: 1px;
+            border-color: Palette.border;
+            border-radius: 12px;
+            clip: true;
+
+            // Tab 0: Overview
+            TabPage {
+                visible: root.current-index == 0;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Overview";
+                        color: Palette.foreground;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                    }
+
+                    Text {
+                        text: "Welcome to the Overview tab.\nPut your widgets here.";
+                        color: Palette.alternate-foreground;
+                        wrap: word-wrap;
+                        font-size: 14px;
+                    }
+
+                    Rectangle {
+                        background: Palette.accent-background;
+                        border-radius: 8px;
+                        height: 100px;
+                        Text {
+                            text: "Sample colored rectangle";
+                            color: Palette.accent-foreground;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            // Tab 1: Images
+            TabPage {
+                visible: root.current-index == 1;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Images";
+                        color: Palette.foreground;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                    }
+
+                    Text {
+                        text: "This tab could host your FITS viewer or image tools.";
+                        color: Palette.alternate-foreground;
+                        wrap: word-wrap;
+                        font-size: 14px;
+                    }
+
+                    Rectangle {
+                        background: Palette.selection-background;
+                        border-radius: 8px;
+                        height: 150px;
+                        Text {
+                            text: "Image viewer area";
+                            color: Palette.foreground;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            font-size: 16px;
+                        }
+                    }
+                }
+            }
+
+            // Tab 2: Logs
+            TabPage {
+                visible: root.current-index == 2;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Logs";
+                        color: Palette.foreground;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                    }
+
+                    Text {
+                        text: "Streaming logs and status go here.";
+                        color: Palette.alternate-foreground;
+                        wrap: word-wrap;
+                        font-size: 14px;
+                    }
+
+                    Rectangle {
+                        background: Palette.background;
+                        border-radius: 8px;
+                        border-width: 1px;
+                        border-color: Palette.border;
+                        height: 200px;
+                        VerticalLayout {
+                            padding: 10px;
+                            spacing: 5px;
+                            Text {
+                                text: "[INFO] Application started";
+                                color: Palette.foreground;
+                                font-size: 12px;
+                            }
+
+                            Text {
+                                text: "[DEBUG] Loading configuration...";
+                                color: Palette.alternate-foreground;
+                                font-size: 12px;
+                            }
+
+                            Text {
+                                text: "[INFO] Ready";
+                                color: Palette.foreground;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Tab 3: Settings
+            TabPage {
+                visible: root.current-index == 3;
+                VerticalLayout {
+                    padding: 18px;
+                    spacing: 12px;
+
+                    Text {
+                        text: "Settings";
+                        color: Palette.foreground;
+                        font-size: 20px;
+                        font-weight: 700;
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: Palette.border;
+                    }
+
+                    Text {
+                        text: "Knobs, toggles, and preferences.";
+                        color: Palette.alternate-foreground;
+                        wrap: word-wrap;
+                        font-size: 14px;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 10px;
+                        Rectangle {
+                            background: Palette.selection-background;
+                            border-radius: 8px;
+                            Text {
+                                text: "Setting A";
+                                color: Palette.foreground;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        Rectangle {
+                            background: Palette.selection-background;
+                            border-radius: 8px;
+                            Text {
+                                text: "Setting B";
+                                color: Palette.foreground;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

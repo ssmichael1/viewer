@@ -1,0 +1,82 @@
+import { Palette } from "std-widgets.slint";
+
+export component EnhancedSlider inherits Rectangle {
+    in property <int> minimum: 0;
+    in property <int> maximum: 100;
+    in-out property <int> value: 50;
+    in property <bool> enabled: true;
+    callback changed(int);
+    height: 36px;
+    
+    // Track
+    Rectangle {
+        y: (parent.height - 6px) / 2;
+        height: 6px;
+        background: Palette.alternate-background.darker(0.2);
+        border-radius: 3px;
+        border-width: 1px;
+        border-color: Palette.border;
+        clip: true;
+        
+        // Filled portion
+        Rectangle {
+            x: 0;
+            y: 0;
+            width: Math.max(0px, parent.width * Math.max(0, root.value - root.minimum) / Math.max(1, root.maximum - root.minimum));
+            height: parent.height;
+            background: Palette.accent-background;
+            border-radius: 3px;
+        }
+    }
+    
+    // Handle
+    handle := Rectangle {
+        width: 20px;
+        height: 20px;
+        x: Math.max(0px, Math.min(parent.width - self.width, (parent.width - self.width) * Math.max(0, root.value - root.minimum) / Math.max(1, root.maximum - root.minimum)));
+        y: (parent.height - self.height) / 2;
+        background: ta.has-hover ? Palette.accent-background.brighter(0.2) : Palette.accent-background;
+        border-radius: 10px;
+        border-width: 3px;
+        border-color: Palette.background;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: #00000060;
+        animate background { duration: 150ms; }
+        
+        // Make it bigger when pressed
+        states [
+            pressed when ta.pressed: {
+                width: 24px;
+                height: 24px;
+                y: (parent.height - 24px) / 2;
+                in {
+                    animate width, height, y {
+                        duration: 100ms;
+                        easing: ease-out;
+                    }
+                }
+                out {
+                    animate width, height, y {
+                        duration: 150ms;
+                        easing: ease-in;
+                    }
+                }
+            }
+        ]
+    }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            root.value = root.minimum + Math.round((self.mouse-x / self.width) * (root.maximum - root.minimum));
+            root.changed(root.value);
+        }
+        moved => {
+            if (self.pressed) {
+                root.value = Math.max(root.minimum, Math.min(root.maximum, 
+                    root.minimum + Math.round((self.mouse-x / self.width) * (root.maximum - root.minimum))));
+                root.changed(root.value);
+            }
+        }
+    }
+}

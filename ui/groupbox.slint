@@ -1,8 +1,16 @@
-import { Button, VerticalBox, HorizontalBox, ComboBox, GridBox, Palette, Slider } from "std-widgets.slint";
+import {
+    Button,
+    VerticalBox,
+    HorizontalBox,
+    ComboBox,
+    GridBox,
+    Palette,
+    Slider,
+} from "std-widgets.slint";
 
 export component GroupBoxCollapsible {
     in-out property <string> title: "GroupBox";
-    in-out property <int> font-size: 14;
+    in-out property <int> font-size: 15;
     in-out property <int> font-weight: 600;
     in-out property <bool> collapsed: false;
 
@@ -45,15 +53,15 @@ export component GroupBoxCollapsible {
             y: 3px;
 
             source: @image-url("./arrow.svg");
-            rotation-angle: 270deg + a * 90deg;
-            rotation-origin-x: self.width / 2;
-            rotation-origin-y: self.height / 2;
+            transform-rotation: 270deg + a * 90deg;
+            transform-origin: { x: self.width / 2, y: self.height / 2 };
         }
 
         titleh := Text {
             text: title;
             font-size: font-size * 1px;
             font-weight: font-weight;
+            font-family: "SF Pro Text";
             y: 4px;
             x: 32px;
             color: Palette.foreground;
@@ -76,7 +84,7 @@ export component GroupBoxCollapsible {
 
 export component GroupBox {
     in-out property <string> title: "GroupBox";
-    in-out property <int> font-size: 14;
+    in-out property <int> font-size: 15;
     in-out property <int> font-weight: 700;
 
     i-background := Rectangle {
@@ -101,6 +109,7 @@ export component GroupBox {
             text: title;
             font-size: font-size * 1px;
             font-weight: font-weight;
+            font-family: "SF Pro Text";
             y: 4px;
             x: 32px;
             color: #555;
@@ -117,7 +126,7 @@ export component GroupBox {
 
 export component GroupBoxOld {
     in-out property <string> title: "GroupBox";
-    in-out property <int> font-size: 14;
+    in-out property <int> font-size: 15;
     in-out property <int> font-weight: 600;
     i-background := Rectangle {
         border-width: 1px;
@@ -141,6 +150,7 @@ export component GroupBoxOld {
         text: title;
         font-size: font-size * 1px;
         font-weight: font-weight;
+        font-family: "SF Pro Text";
         y: font-size / 2 * -1px;
         x: 20px;
         color: #555;

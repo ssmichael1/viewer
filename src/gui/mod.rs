@@ -37,7 +37,7 @@ impl Default for GuiParams {
         Self {
             gamma: 1.0,
             fcscaletype: FCScaleType::Max,
-            scale_range: (0, 65535),
+            scale_range: (0, 4095),
             colorscale: "grayscale".to_string(),
         }
     }
@@ -78,17 +78,7 @@ impl Gui {
             Camera::SVBony(c) => {
                 globals.set_camera_type(CameraType::SVBony);
                 let c = c.read().unwrap();
-                c.capabilities.iter().for_each(|cap| {
-                    println!("  Capability: {}", cap);
-                    let val = c
-                        .get_control_value(cap.control_type)
-                        .map_err(|e| {
-                            println!("Failed to get control value for {}: {}", cap.name, e);
-                            e
-                        })
-                        .unwrap_or(30);
-                    println!("    Value: {}", val);
-                });
+
                 globals.set_svbony_capabilities(slint::VecModel::from_slice(
                     &c.capabilities
                         .iter()
@@ -126,24 +116,41 @@ impl Gui {
 
         gui.ui.borrow().global::<Shared>().on_svbony_cap_changed({
             let cam = gui.camera.clone();
-            println!("cam = {:?}", cam.is_some());
+            let ui_weak = gui.ui.borrow().as_weak();
             move |name: slint::SharedString, value: i32| {
-                println!("Capability change: {} -> {}", name, value);
                 if let Some(Camera::SVBony(c)) = &cam {
-                    println!("found the camera");
                     let c = c.write().unwrap();
                     if let Some(cap) = c.capabilities.iter().find(|cap| cap.name == name.as_str()) {
-                        println!("Found capability: {} -> {}", cap.name, value);
                         if cap.is_writeable {
-                            let _ =
-                                c.set_control_value(cap.control_type, value, false)
-                                    .map_err(|e| {
-                                        println!(
-                                            "Failed to set control value {:?} to {} : {}",
-                                            cap.control_type, value, e
-                                        );
+                            let is_auto = value < 0;
+                            let actual_value = if is_auto { cap.default_value } else { value };
+                            let _ = c
+                                .set_control_value(cap.control_type, actual_value, is_auto)
+                                .map_err(|e| {
+                                    tracing::error!(
+                                        "Failed to set control value {:?} to {} (auto={}) : {}",
+                                        cap.control_type,
+                                        actual_value,
+                                        is_auto,
                                         e
-                                    });
+                                    );
+                                    e
+                                });
+
+                            // Update the UI model to reflect the change
+                            if let Some(ui) = ui_weak.upgrade() {
+                                let globals = ui.global::<Shared>();
+                                let caps = globals.get_svbony_capabilities();
+                                for i in 0..caps.row_count() {
+                                    if let Some(mut cap_display) = caps.row_data(i) {
+                                        if cap_display.name == name {
+                                            cap_display.value = value;
+                                            caps.set_row_data(i, cap_display);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -193,6 +200,11 @@ impl Gui {
             let _ = ui_handle.upgrade_in_event_loop(move |ui| {
                 let result = proc.read().unwrap();
                 let global = ui.global::<Shared>();
+
+                // Increment frame counter to trigger image refresh
+                global.set_frame_counter(global.get_frame_counter().wrapping_add(1));
+
+                ui.window().request_redraw();
 
                 let histdata = slint::VecModel::from_slice(&[PlotData {
                     points: {
@@ -303,7 +315,6 @@ impl Gui {
                     "{:.2}",
                     result.var.unwrap_or(0.0).sqrt()
                 )));
-                ui.window().request_redraw();
             });
         })
     }
@@ -458,8 +469,7 @@ impl Gui {
         // Wire the Ctrl/Cmd+Q from .slint to actually exit
         let weak = ui.as_weak();
         ui.on_quit_requested(move || {
-            println!("Quit requested");
-            if let Some(ui) = weak.upgrade() {
+            if let Some(_ui) = weak.upgrade() {
                 // Hiding the last window makes `run()` return.
                 //let _ = ui.hide();
                 // (Alternative: slint::quit_event_loop().ok();)
@@ -613,18 +623,17 @@ impl Gui {
     }
 
     pub fn run(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        println!("running the GUI");
+        tracing::trace!("running the GUI");
 
         match self.ui.borrow_mut().run() {
-            Ok(_) => println!("GUI exited normally"),
-            Err(e) => eprintln!("GUI exited with error: {}", e),
+            Ok(_) => tracing::info!("GUI exited normally"),
+            Err(e) => tracing::error!("GUI exited with error: {}", e),
         }
 
-        println!("GUI stopped");
         if let Some(cam) = &mut self.camera {
-            println!("stopping camera");
+            tracing::info!("stopping camera");
             cam.stop()?;
-            println!("disconnecting camera");
+            tracing::info!("disconnecting camera");
             // sleep for 10 milliseconds
             std::thread::sleep(std::time::Duration::from_millis(10));
             cam.disconnect()?;

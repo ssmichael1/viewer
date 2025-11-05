@@ -6,10 +6,11 @@ mod imgproc;
 
 use camera::prelude::*;
 
-use imgproc::ImageQueue;
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    tracing_subscriber::fmt::init();
+
     // Create a GUI
     let mut thegui = gui::Gui::new()?;
 
@@ -20,15 +21,6 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Tell the chain to call the gui processor when it is complete
     imgproc.lock().unwrap().set_sink(thegui.on_processed());
-
-    // Image queue: creates a separate thread to process frames
-    let imgqueue = ImageQueue::new();
-    // Process images whenever a frame arrives
-    let pclone = imgproc.clone();
-    // Start the image queue (creates a thread)
-    imgqueue.start(move |frame: std::sync::Arc<CameraFrame>| {
-        pclone.lock().unwrap().process_frame(&frame)
-    });
 
     let cameras = get_connected_cameras();
     if cameras.is_empty() {

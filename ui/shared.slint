@@ -1,5 +1,11 @@
-import {PlotRange, PlotData, MarkerType, PlotType, PlotPoint} from "plotting.slint";
-import {SVBonyCapDisp} from "svbony.slint";
+import {
+    PlotRange,
+    PlotData,
+    MarkerType,
+    PlotType,
+    PlotPoint,
+} from "plotting.slint";
+import { SVBonyCapDisp } from "svbony.slint";
 
 export enum CameraType {
     None,
@@ -17,11 +23,11 @@ export global Shared {
     in-out property <bool> autoscale: false;
     in-out property <bool> manualfc: false;
     in-out property <int> manualfc_min: 0;
-    in-out property <int> manualfc_max: 65536;
+    in-out property <int> manualfc_max: 4095;
     in-out property <{min: int, max: int}> colorscale;
     in-out property <string> colormap: "Grayscale";
     in-out property <float> gamma: 1.0;
-    in-out property <{min: int, max: int}> fcrange: { min: 0, max: 65536 };
+    in-out property <{min: int, max: int}> fcrange: { min: 0, max: 4095 };
     in property <CameraType> camera_type: SVBony;
     in property <string> camera_serial: "";
     in property <string> camera_name: "";
@@ -31,6 +37,7 @@ export global Shared {
 
     // Region of interest for statistics, etc...
     in-out property <{x: int, y: int, width: int, height: int}> roi: { x: 0, y: 0, width: 0, height: 0 };
+    in-out property <int> frame-counter: 0;
     pure callback displayimage(length, length) -> image;
 
     callback view_changed();
