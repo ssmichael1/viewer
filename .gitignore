@@ -26,3 +26,5 @@ Cargo.lock
 *.code-workspace 
 
 *.bin
+
+.DS_Store
